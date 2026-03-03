@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Balance — Zynex</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="logo.png">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule defer src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <script src="script.js" defer></script>
+    <script type="module" src="firebase-init.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <aside class="sidebar" aria-label="Sidebar">
+        <div class="brand"><ion-icon name="layers-outline"></ion-icon><a href="index.html">Zynex</a></div>
+        <ul class="nav-list">
+            <li><a href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
+            <li><a href="services.html"><ion-icon name="cube-outline"></ion-icon>Services</a></li>
+            <li><a href="orders.html"><ion-icon name="notifications-outline"></ion-icon>Orders</a></li>
+            <li><a class="active" href="balance.html"><ion-icon name="card-outline"></ion-icon>Balance</a></li>
+        </ul>
+
+        <div class="section-title">AUTH</div>
+        <ul class="nav-list">
+            <li><a href="account.html"><ion-icon name="person-outline"></ion-icon>Profile</a></li>
+        </ul>
+
+        <div id="admin-section-title" class="section-title" style="display:none">ADMIN</div>
+        <ul id="admin-nav-list" class="nav-list" style="display:none">
+            <li><a href="admin.html"><ion-icon name="server-outline"></ion-icon>Server <span id="admin-sidebar-badge" class="nav-badge">0</span></a></li>
+        </ul>
+    </aside>
+
+    <header class="topbar">
+        <div class="left-controls">
+            <button class="hamburger" aria-label="Open menu" onclick="togglePanel()"><ion-icon name="menu-outline"></ion-icon></button>
+            <div id="headerAuthArea"></div>
+        </div>
+        <div class="controls">
+            <button onclick="checkBalanceAccess()"><ion-icon name="card-outline"></ion-icon>₹0.00</button>
+            <button onclick="openPopup('.help-popup')"><ion-icon name="help-circle-outline"></ion-icon>Help</button>
+        </div>
+    </header>
+
+    <main class="content">
+        <div style="margin-top:88px"></div>
+        
+        <div class="balance-card">
+            <p style="opacity:0.9; margin:0; font-size:0.9rem">Total Balance</p>
+            <div class="balance-amount">₹0.00</div>
+            <div class="balance-actions">
+                <button class="balance-btn" onclick="showAlert('Payment gateway integration coming soon!', 'Add Funds')"><ion-icon name="add-circle-outline" style="vertical-align:middle; margin-right:5px"></ion-icon> Add Funds</button>
+                <button class="balance-btn" onclick="window.location.href='services.html'"><ion-icon name="rocket-outline" style="vertical-align:middle; margin-right:5px"></ion-icon> Use</button>
+            </div>
+        </div>
+
+        <div class="dashboard-grid" style="grid-template-columns: 1fr; margin-top:0;">
+            <div class="stat-card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
+                    <h4>Recent Transactions</h4>
+                    <button style="background:none; border:none; color:#5c6cff; cursor:pointer; font-size:0.9rem">View All</button>
+                </div>
+                
+                <table class="transaction-table">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Date</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><div style="font-weight:500">Welcome Bonus</div><small style="color:#888">System Credit</small></td>
+                            <td>Oct 24, 2023</td>
+                            <td style="color:#00c853; font-weight:600">+₹0.00</td>
+                            <td><span class="status-badge status-completed">Completed</span></td>
+                        </tr>
+                        <!-- More rows can be added dynamically -->
+                    </tbody>
+                </table>
+                
+                <div style="text-align:center; padding:30px; color:#999; display:none" id="no-transactions">
+                    <ion-icon name="receipt-outline" style="font-size:40px; margin-bottom:10px; opacity:0.5"></ion-icon>
+                    <p>No transactions yet</p>
+                </div>
+            </div>
+        </div>
+        
+    </main>
+
+    <div class="popup help-popup" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="popup-content help">
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.help-popup')">&times;</button>
+            <!-- Content injected via JS openSupportCenter() -->
+            <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                    const check = setInterval(() => { if(window.openSupportCenter) { window.openSupportCenter(); clearInterval(check); } }, 100);
+                });
+            </script>
+        </div>
+    </div>
+
+    <div class="popup balance-popup" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="popup-content balance">
+            <h2>Balance</h2>
+            <p>Your current balance is ₹0.00</p>
+            <div style="margin-top:12px"><button onclick="closePopup('.balance-popup')">Close</button></div>
+        </div>
+    </div>
+
+    <div class="popup signin-popup" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="popup-content">
+            <h2>Sign in to continue</h2>
+            <p>Please log in to access your balance.</p>
+            <div style="margin-top:20px; display:flex; gap:10px; justify-content:center;">
+                <button onclick="window.location.href='account.html'">Log In</button>
+                <button onclick="closePopup('.signin-popup')" style="background:#888">Close</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

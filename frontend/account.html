@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Account — Zynex</title>
+	<link rel="stylesheet" href="style.css">
+	<link rel="icon" type="image/png" href="logo.png">
+	<script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+	<script nomodule defer src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+	<script src="script.js" defer></script>
+	<script type="module" src="firebase-init.js" defer></script>
+	<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+	<aside class="sidebar" aria-label="Sidebar">
+		<div class="brand"><ion-icon name="layers-outline"></ion-icon><a href="index.html">Zynex</a></div>
+
+		<ul class="nav-list">
+			<li><a href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
+			<li><a href="services.html"><ion-icon name="cube-outline"></ion-icon>Services</a></li>
+			<li><a href="orders.html"><ion-icon name="notifications-outline"></ion-icon>Orders</a></li>
+		</ul>
+
+		<div class="section-title">AUTH</div>
+		<ul class="nav-list">
+			<li><a class="active" href="account.html"><ion-icon name="person-outline"></ion-icon>Profile</a></li>
+		</ul>
+
+        <div id="admin-section-title" class="section-title" style="display:none">ADMIN</div>
+        <ul id="admin-nav-list" class="nav-list" style="display:none">
+            <li><a href="admin.html"><ion-icon name="server-outline"></ion-icon>Server <span id="admin-sidebar-badge" class="nav-badge">0</span></a></li>
+        </ul>
+	</aside>
+
+	<header class="topbar">
+		<div class="left-controls">
+			<button class="hamburger" aria-label="Open menu" onclick="togglePanel()"><ion-icon
+					name="menu-outline"></ion-icon></button>
+		</div>
+		<div class="controls">
+			<button onclick="openPopup('.help-popup')">
+				<ion-icon name="help-circle-outline"></ion-icon>Help
+			</button>
+		</div>
+	</header>
+
+	<main class="content">
+		<!-- preserve header spacing -->
+		<div style="margin-top:88px"></div>
+		<section class="not-logged-in" style="display:none; text-align:center; padding:60px 20px; color:#555;">
+
+			<ion-icon name="lock-closed-outline" style="font-size:52px; margin-bottom:18px; color:#5c6cff;"></ion-icon>
+
+			<h2 style="margin-bottom:10px;">Please sign in to view your account</h2>
+
+			<p style="margin-bottom:30px;">
+				Access your profile details, billing information, and account settings.
+			</p>
+
+			<div class="auth-buttons">
+				<button class="auth-btn login-btn" onclick="openLogin()">Log In</button>
+				<button class="auth-btn register-btn" onclick="openRegister()">Register</button>
+			</div>
+
+		</section>
+		<!-- placeholder shown when user is not authenticated -->
+		<!-- Profile Section (hidden until login) -->
+		<section id="profileSection" style="display:none; padding:40px 20px;">
+
+			<div class="profile-card">
+				<button class="settings-icon-btn" onclick="openPopup('.settings-popup')" aria-label="Settings">
+					<ion-icon name="settings-outline"></ion-icon>
+				</button>
+
+				<div class="profile-header">
+					<div class="profile-avatar">
+						<ion-icon id="defaultProfileIcon" name="person-circle-outline"></ion-icon>
+						<img id="profileImage" src="" style="display:none">
+						<input type="file" id="imageUpload" hidden>
+						<button class="edit-avatar" onclick="document.getElementById('imageUpload').click()">
+							<ion-icon name="camera-outline"></ion-icon>
+						</button>
+					</div>
+
+					<div class="profile-name-section">
+						<h2 id="profileName">Username</h2>
+						<button class="edit-name" onclick="editUsername()">
+							<ion-icon name="create-outline"></ion-icon>
+						</button>
+					</div>
+				</div>
+
+				<div class="profile-details">
+
+					<div class="detail-box">
+						<h4>Account Type</h4>
+						<p>Basic</p>
+					</div>
+
+					<div class="detail-box">
+						<h4>Status</h4>
+						<p style="color:green;">Active</p>
+					</div>
+
+					<div class="detail-box">
+						<h4>Total Orders</h4>
+						<p id="profileTotalOrders">0</p>
+					</div>
+
+				</div>
+
+				<div style="margin-top:30px; text-align:center;">
+					<button class="logout-btn" onclick="logoutUser()">Logout</button>
+				</div>
+
+			</div>
+
+		</section>
+	</main>
+
+	<div class="popup help-popup" role="dialog" aria-modal="true" aria-hidden="true">
+		<div class="popup-content help">
+			<button class="close-icon" aria-label="Close" onclick="closePopup('.help-popup')">&times;</button>
+            <!-- Content injected via JS openSupportCenter() -->
+            <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                    const check = setInterval(() => { if(window.openSupportCenter) { window.openSupportCenter(); clearInterval(check); } }, 100);
+                });
+            </script>
+		</div>
+	</div>
+
+	<div class="popup settings-popup" role="dialog" aria-modal="true" aria-hidden="true">
+		<div class="popup-content settings-content">
+			<div class="settings-header">
+				<h2>Settings</h2>
+				<button class="close-icon" onclick="closePopup('.settings-popup')" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">&times;</button>
+			</div>
+			<div class="settings-body">
+				
+				<div class="settings-category">
+					<h3>Account</h3>
+					<div class="setting-item" onclick="closePopup('.settings-popup'); editUsername()"><span>Edit Profile</span> <ion-icon name="chevron-forward-outline"></ion-icon></div>
+					<div class="setting-item" onclick="closePopup('.settings-popup'); openPopup('.change-password-popup')"><span>Change Password</span> <ion-icon name="chevron-forward-outline"></ion-icon></div>
+					<div class="setting-item" onclick="closePopup('.settings-popup'); openPopup('.privacy-popup')"><span>Privacy Policy</span> <ion-icon name="chevron-forward-outline"></ion-icon></div>
+				</div>
+
+				<div class="settings-category">
+					<h3>Notifications</h3>
+					<div class="setting-item">
+						<span>Email Updates</span>
+						<input type="checkbox" id="emailUpdates" onchange="saveSetting('emailUpdates', this.checked)" checked>
+					</div>
+					<div class="setting-item">
+						<span>Push Notifications</span>
+						<input type="checkbox" id="pushNotifs" onchange="saveSetting('pushNotifs', this.checked)" checked>
+					</div>
+					<div class="setting-item">
+						<span>Order Status SMS</span>
+						<input type="checkbox" id="orderSms" onchange="saveSetting('orderSms', this.checked)">
+					</div>
+					<div class="setting-item">
+						<span>Promotional Offers</span>
+						<input type="checkbox" id="promoOffers" onchange="saveSetting('promoOffers', this.checked)" checked>
+					</div>
+				</div>
+
+				<div class="settings-category">
+					<h3>Appearance</h3>
+					<div class="setting-item">
+						<span>Dark Mode</span>
+						<input type="checkbox" id="darkModeToggle" onchange="toggleTheme(this.checked)">
+					</div>
+					<div class="setting-item">
+						<span>Compact View</span>
+						<input type="checkbox" id="compactModeToggle" onchange="toggleCompact(this.checked)">
+					</div>
+					<div class="setting-item" onclick="showAlert('Currently only English (US) is supported.', 'Language')"><span>Language</span> <span style="color:#888;font-size:0.9rem">English <ion-icon name="chevron-forward-outline" style="vertical-align:middle"></ion-icon></span></div>
+				</div>
+
+				<div class="settings-category">
+					<h3>Support</h3>
+					<div class="setting-item" onclick="closePopup('.settings-popup'); openPopup('.help-popup')"><span>Help Center</span> <ion-icon name="open-outline"></ion-icon></div>
+					<div class="setting-item" onclick="closePopup('.settings-popup'); showCreateTicket()"><span>Report a Problem</span> <ion-icon name="bug-outline"></ion-icon></div>
+					<div class="setting-item" onclick="closePopup('.settings-popup'); openPopup('.terms-popup')"><span>Terms of Service</span> <ion-icon name="document-text-outline"></ion-icon></div>
+				</div>
+
+				<div class="settings-category">
+					<h3 style="color:#ff4d4f">Danger Zone</h3>
+					<div class="setting-item danger" style="color:#ff4d4f" onclick="deleteAccount()">
+						<span>Delete Account</span>
+						<ion-icon name="trash-outline" style="color:#ff4d4f"></ion-icon>
+					</div>
+				</div>
+
+			</div>
+		</div>
+	</div>
+
+	<!-- login sliding panel overlay -->
+	<div class="login-overlay" aria-hidden="true">
+		<div class="login-panel" role="dialog" aria-modal="true">
+			<button class="close-btn" aria-label="Close" onclick="closeLogin()">×</button>
+			<h2>Log in</h2>
+			<div class="form-group">
+				<label for="login-email">Email</label>
+				<input type="email" id="login-email" />
+			</div>
+			<div class="form-group">
+				<label for="login-pass">Password</label>
+				<input type="password" id="login-pass" />
+			</div>
+			<button class="login-submit" onclick="loginUser()">Log in</button>
+			<div class="social-login">
+				<button class="social google" onclick="googleLogin()"><ion-icon name="logo-google"></ion-icon>Sign in
+					with Google</button>
+			</div>
+			<p class="register-text">Don't have an account? <a href="#"
+					onclick="openRegister();return false;">Register</a></p>
+		</div>
+	</div>
+
+	<!-- register sliding panel overlay -->
+	<div class="register-overlay" aria-hidden="true">
+		<div class="register-panel" role="dialog" aria-modal="true">
+			<button class="close-btn" aria-label="Close" onclick="closeRegister()">×</button>
+			<h2>Create account</h2>
+			<div class="form-group">
+				<label for="reg-user">Username</label>
+				<input type="text" id="reg-user" />
+			</div>
+			<div class="form-group">
+				<label for="reg-email">Email</label>
+				<input type="email" id="reg-email" />
+			</div>
+			<div class="form-group">
+				<label for="reg-pass">Password</label>
+				<input type="password" id="reg-pass" />
+			</div>
+			<div class="form-group">
+				<label for="reg-pass2">Confirm password</label>
+				<input type="password" id="reg-pass2" />
+			</div>
+			<button class="register-submit" onclick="registerUser()">Register</button>
+			<div class="social-login">
+				<button class="social google" onclick="googleLogin()"><ion-icon name="logo-google"></ion-icon>Sign up
+					with Google</button>
+			</div>
+			<p class="login-text">Already have an account? <a href="#" onclick="openLogin();return false;">Log in</a>
+			</p>
+		</div>
+	</div>
+
+	<!-- Change Password Popup -->
+	<div class="popup change-password-popup" role="dialog" aria-hidden="true">
+		<div class="popup-content" style="max-width:350px; text-align:left">
+			<button class="close-icon" onclick="closePopup('.change-password-popup')" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+			<h2 style="margin-bottom:20px; text-align:center">Change Password</h2>
+			<div class="form-group">
+				<label>Old Password</label>
+				<input type="password" id="cp-old" class="form-input">
+			</div>
+			<div class="form-group">
+				<label>New Password</label>
+				<input type="password" id="cp-new" class="form-input">
+			</div>
+			<div class="form-group">
+				<label>Confirm New Password</label>
+				<input type="password" id="cp-confirm" class="form-input">
+			</div>
+			<button class="cta" style="width:100%" onclick="handleChangePassword()">Update Password</button>
+		</div>
+	</div>
+
+	<!-- Privacy Policy Popup -->
+	<div class="popup privacy-popup" role="dialog" aria-hidden="true">
+		<div class="popup-content" style="max-width:600px; text-align:left; max-height:80vh; overflow-y:auto">
+			<button class="close-icon" onclick="closePopup('.privacy-popup')" style="position:sticky; top:0; float:right; background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+			<h2>Privacy Policy</h2>
+			<p style="color:#666; font-size:0.9rem; margin-bottom:15px">Last updated: October 2023</p>
+			<div style="font-size:0.95rem; line-height:1.6; color:#333">
+				<p style="margin-bottom:10px"><strong>1. Information We Collect</strong><br>We collect information you provide directly to us, such as when you create an account, update your profile, or request customer support. This includes your username, email address, and payment transaction IDs.</p>
+				<p style="margin-bottom:10px"><strong>2. How We Use Your Information</strong><br>We use the information we collect to provide, maintain, and improve our services, process your transactions, and communicate with you regarding your orders.</p>
+				<p style="margin-bottom:10px"><strong>3. Data Security</strong><br>We implement appropriate technical and organizational measures to protect your personal data against unauthorized access, alteration, disclosure, or destruction. We use Google Firebase for secure authentication and data storage.</p>
+				<p style="margin-bottom:10px"><strong>4. Third-Party Services</strong><br>We may use third-party services (like payment gateways or analytics) that collect, monitor, and analyze this type of information to increase our service's functionality.</p>
+			</div>
+			<button class="cta" style="width:100%; margin-top:20px" onclick="closePopup('.privacy-popup')">Close</button>
+		</div>
+	</div>
+
+	<!-- Terms Popup -->
+	<div class="popup terms-popup" role="dialog" aria-hidden="true">
+		<div class="popup-content" style="max-width:600px; text-align:left; max-height:80vh; overflow-y:auto">
+			<button class="close-icon" onclick="closePopup('.terms-popup')" style="position:sticky; top:0; float:right; background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+			<h2>Terms of Service</h2>
+			<div style="font-size:0.95rem; line-height:1.6; color:#333; margin-top:15px">
+				<p style="margin-bottom:10px"><strong>1. Acceptance of Terms</strong><br>By accessing and using Zynex, you accept and agree to be bound by the terms and provision of this agreement.</p>
+				<p style="margin-bottom:10px"><strong>2. Service Delivery</strong><br>Zynex is not affiliated with Instagram, Facebook, or YouTube. It is your sole responsibility to comply with the rules and any legislation that you are subject to. You use the service at your own risk.</p>
+				<p style="margin-bottom:10px"><strong>3. Refunds</strong><br>Completed orders are non-refundable. If payment verification is successful but the order cannot be processed, please open a ticket with your Order ID and UPI details to receive a refund.</p>
+				<p style="margin-bottom:10px"><strong>4. Privacy</strong><br>We take your privacy seriously and will take all measures to protect your personal information. Any personal information received will only be used to fill your order.</p>
+			</div>
+			<button class="cta" style="width:100%; margin-top:20px" onclick="closePopup('.terms-popup')">I Agree</button>
+		</div>
+	</div>
+
+	<script>
+		// Sync UI with saved settings on load
+		document.addEventListener('DOMContentLoaded', () => {
+			if(localStorage.getItem('zynex_dark_mode') === 'true') document.getElementById('darkModeToggle').checked = true;
+			if(localStorage.getItem('zynex_compact_view') === 'true') document.getElementById('compactModeToggle').checked = true;
+			
+			['emailUpdates', 'pushNotifs', 'orderSms', 'promoOffers'].forEach(id => {
+				const val = localStorage.getItem('zynex_setting_' + id);
+				if(val !== null) document.getElementById(id).checked = (val === 'true');
+			});
+		});
+	</script>
+</body>
+
+</html>

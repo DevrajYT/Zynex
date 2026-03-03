@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Admin — Zynex</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="logo.png">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule defer src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <script src="script.js" defer></script>
+    <script type="module" src="firebase-init.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        .admin-table { width: 100%; border-collapse: collapse; background: #fff; min-width: 800px; }
+        .admin-table th { background: #f8f9fa; padding: 15px; text-align: left; font-weight: 600; color: #555; font-size: 0.9rem; }
+        .admin-table td { padding: 15px; border-bottom: 1px solid #eee; font-size: 0.9rem; vertical-align: middle; }
+        .admin-table tr:last-child td { border-bottom: none; }
+        .action-select { padding: 6px; border-radius: 6px; border: 1px solid #ddd; background: #fff; cursor: pointer; font-family: inherit; }
+        .utr-code { font-family: monospace; background: #f0f0f0; padding: 4px 8px; border-radius: 4px; color: #333; display: inline-block; }
+        .filter-bar { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-input { padding: 10px; border: 1px solid #ddd; border-radius: 8px; flex: 1; min-width: 200px; }
+        
+        body.dark-mode .admin-table { background: #1e1e1e; }
+        body.dark-mode .admin-table th { background: #252525; color: #ccc; }
+        body.dark-mode .admin-table td { border-bottom-color: #333; color: #e0e0e0; }
+        body.dark-mode .utr-code { background: #333; color: #fff; }
+        body.dark-mode .action-select { background: #2c2c2c; color: #fff; border-color: #444; }
+        body.dark-mode .filter-input { background: #2c2c2c; color: #fff; border-color: #444; }
+    </style>
+</head>
+
+<body>
+
+    <aside class="sidebar" aria-label="Sidebar">
+        <div class="brand"><ion-icon name="layers-outline"></ion-icon><a href="index.html">Zynex</a></div>
+
+        <ul class="nav-list">
+            <li><a href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
+            <li><a href="services.html"><ion-icon name="cube-outline"></ion-icon>Services</a></li>
+            <li><a href="orders.html"><ion-icon name="notifications-outline"></ion-icon>Orders</a></li>
+        </ul>
+
+        <div class="section-title">AUTH</div>
+        <ul class="nav-list">
+            <li><a href="account.html"><ion-icon name="person-outline"></ion-icon>Profile</a></li>
+        </ul>
+
+        <div id="admin-section-title" class="section-title">ADMIN</div>
+        <ul id="admin-nav-list" class="nav-list">
+            <li><a class="active" href="admin.html"><ion-icon name="server-outline"></ion-icon>Server <span id="admin-sidebar-badge" class="nav-badge">0</span></a></li>
+        </ul>
+    </aside>
+
+    <header class="topbar">
+        <div class="left-controls">
+            <button class="hamburger" aria-label="Open menu" onclick="togglePanel()"><ion-icon name="menu-outline"></ion-icon></button>
+            <div id="headerAuthArea"></div>
+        </div>
+    </header>
+
+    <main class="content">
+        <div style="margin-top:88px"></div>
+        <div class="dashboard-header">
+            <h2>Server Dashboard</h2>
+            <p>Manage orders and verify payments.</p>
+        </div>
+
+        <div class="dashboard-grid" style="margin-bottom: 30px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+            <div class="stat-card">
+                <h4>Total Revenue</h4>
+                <p class="stat-value" id="admin-total-revenue">₹0.00</p>
+            </div>
+            <div class="stat-card">
+                <h4>Total Profit</h4>
+                <p class="stat-value" id="admin-total-profit" style="color:#00c853">₹0.00</p>
+            </div>
+            <div class="stat-card">
+                <h4>Total Orders</h4>
+                <p class="stat-value" id="admin-total-orders">0</p>
+            </div>
+            <div class="stat-card">
+                <h4>Pending Actions</h4>
+                <p class="stat-value" id="admin-pending-orders" style="color:#ff9800">0</p>
+            </div>
+        </div>
+
+        <!-- Admin Tabs -->
+        <div class="admin-tabs">
+            <button class="admin-tab-btn active" onclick="switchAdminTab('orders')">Orders <span id="admin-orders-badge" class="tab-badge"></span></button>
+            <button class="admin-tab-btn" onclick="switchAdminTab('tickets')">Tickets <span id="admin-tickets-badge" class="tab-badge"></span></button>
+            <button class="admin-tab-btn" onclick="switchAdminTab('users')">Users</button>
+            <button class="admin-tab-btn" onclick="switchAdminTab('settings')">Site Settings</button>
+        </div>
+
+        <!-- ORDERS TAB -->
+        <div id="admin-tab-orders" class="admin-tab-content">
+            <div class="filter-bar">
+                <input type="text" id="admin-search" class="filter-input" placeholder="Search by UTR, User, or Order ID..." onkeyup="filterAdminOrders()">
+                <select id="admin-filter-status" class="action-select" onchange="filterAdminOrders()" style="flex:0 0 150px">
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="inprocess">In Process</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+                <button class="cta" onclick="exportOrdersToCSV()" style="padding:10px 15px; font-size:0.9rem;"><ion-icon name="download-outline"></ion-icon> Export CSV</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>User</th>
+                            <th>Service</th>
+                            <th>Price / Qty</th>
+                            <th>UTR / Payment</th>
+                            <th>Status</th>
+                            <th>Manage</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-orders-body">
+                        <tr><td colspan="7" style="text-align:center; padding:30px;">Loading orders...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TICKETS TAB -->
+        <div id="admin-tab-tickets" class="admin-tab-content" style="display:none;">
+            <div class="filter-bar">
+                <input type="text" id="admin-ticket-search" class="filter-input" placeholder="Search Tickets..." onkeyup="filterAdminTickets()">
+                <select id="admin-ticket-filter" class="action-select" onchange="filterAdminTickets()">
+                    <option value="all">All Tickets</option>
+                    <option value="open">Open</option>
+                    <option value="closed">Closed</option>
+                </select>
+            </div>
+            <div class="table-responsive">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Ticket ID</th>
+                            <th>User</th>
+                            <th>Subject</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-tickets-body">
+                        <tr><td colspan="6" style="text-align:center; padding:30px;">Loading tickets...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- USERS TAB -->
+        <div id="admin-tab-users" class="admin-tab-content" style="display:none;">
+            <div class="filter-bar">
+                <input type="text" id="admin-user-search" class="filter-input" placeholder="Search Users..." onkeyup="filterAdminUsers()">
+            </div>
+            <div class="table-responsive">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Total Spent</th>
+                            <th>Total Orders</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-users-body">
+                        <tr><td colspan="5" style="text-align:center; padding:30px;">Loading users...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SETTINGS TAB -->
+        <div id="admin-tab-settings" class="admin-tab-content" style="display:none;">
+            <div class="stat-card">
+                <h3>Global Announcement</h3>
+                <p style="margin-bottom:15px; color:#666">Set a message that will appear on the top of every user's dashboard.</p>
+                <textarea id="admin-announcement-input" class="form-input" style="width:100%; height:100px; margin-bottom:15px; resize:vertical;" placeholder="Enter announcement message..."></textarea>
+                <div style="display:flex; gap:10px">
+                    <button class="cta" onclick="saveAnnouncement()">Post Announcement</button>
+                    <button class="cta" style="background:#ff4d4f" onclick="clearAnnouncement()">Clear</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Admin Manage Popup -->
+    <div class="popup admin-manage-popup" role="dialog" aria-hidden="true">
+        <div class="popup-content" style="max-width:450px; text-align:left">
+            <button class="close-icon" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer;" onclick="closePopup('.admin-manage-popup')">&times;</button>
+            <h2 style="margin-bottom:20px">Manage Order</h2>
+            
+            <div id="admin-manage-content">
+                <!-- Injected via JS -->
+            </div>
+
+            <div id="admin-manage-actions" style="margin-top:20px; border-top:1px solid #eee; padding-top:15px">
+                <!-- Actions Injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Ticket Popup -->
+    <div class="popup admin-ticket-popup" role="dialog" aria-hidden="true">
+        <div class="popup-content" style="max-width:500px; text-align:left; width:90%">
+            <button class="close-icon" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer;" onclick="closePopup('.admin-ticket-popup')">&times;</button>
+            <h2 style="margin-bottom:15px">Manage Ticket</h2>
+            <div id="admin-ticket-header" style="margin-bottom:15px; padding-bottom:10px; border-bottom:1px solid #eee; font-size:0.9rem; color:#555"></div>
+            
+            <div id="admin-ticket-chat" class="chat-container"></div>
+            
+            <div style="display:flex; gap:10px; align-items:flex-start">
+                <textarea id="admin-ticket-reply" class="form-input" style="flex:1; resize:vertical; min-height:40px" placeholder="Type a reply..."></textarea>
+                <button class="cta" style="padding:10px 15px" onclick="sendAdminTicketReply()"><ion-icon name="send"></ion-icon></button>
+            </div>
+            <div style="margin-top:15px; display:flex; justify-content:space-between; align-items:center">
+                <button onclick="deleteAdminTicket()" style="background:#ffebee; color:#c62828; border:none; padding:8px 15px; border-radius:6px; cursor:pointer; font-size:0.85rem"><ion-icon name="trash-outline" style="vertical-align:middle; margin-right:5px"></ion-icon> Delete</button>
+                <button id="admin-close-ticket-btn" style="background:#eee; color:#333; border:none; padding:8px 15px; border-radius:6px; cursor:pointer; font-size:0.85rem" onclick="toggleTicketStatus()">Close Ticket</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Services — Zynex</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="logo.png">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule defer src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <script src="script.js" defer></script>
+    <script type="module" src="firebase-init.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <aside class="sidebar" aria-label="Sidebar">
+        <div class="brand"><ion-icon name="layers-outline"></ion-icon><a href="index.html">Zynex</a></div>
+
+        <ul class="nav-list">
+            <li><a href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
+            <li><a class="active" href="services.html"><ion-icon name="cube-outline"></ion-icon>Services</a></li>
+            <li><a href="orders.html"><ion-icon name="notifications-outline"></ion-icon>Orders</a></li>
+        </ul>
+
+        <div class="section-title">AUTH</div>
+        <ul class="nav-list">
+            <li><a href="account.html"><ion-icon name="person-outline"></ion-icon>Profile</a></li>
+        </ul>
+
+        <div id="admin-section-title" class="section-title" style="display:none">ADMIN</div>
+        <ul id="admin-nav-list" class="nav-list" style="display:none">
+            <li><a href="admin.html"><ion-icon name="server-outline"></ion-icon>Server <span id="admin-sidebar-badge" class="nav-badge">0</span></a></li>
+        </ul>
+    </aside>
+
+    <header class="topbar">
+        <div class="left-controls">
+            <button class="hamburger" aria-label="Open menu" onclick="togglePanel()"><ion-icon name="menu-outline"></ion-icon></button>
+            <div id="headerAuthArea"></div>
+        </div>
+        <div class="controls">
+            <button onclick="openPopup('.help-popup')"><ion-icon name="help-circle-outline"></ion-icon>Help</button>
+        </div>
+    </header>
+
+    <main class="content">
+        <h2 style="margin-top:88px">Services</h2>
+
+        <div class="dashboard-grid services-grid">
+            <div class="stat-card" style="text-align:center">
+                <ion-icon name="logo-instagram" style="font-size:48px; color:#C13584; margin-bottom:10px"></ion-icon>
+                <h3>Instagram</h3>
+                <p style="margin:15px 0; line-height:1.6; color:#555">
+                    Followers<br>
+                    Views<br>
+                    Likes<br>
+                    Comments<br>
+                    and more!
+                </p>
+                <button class="cta" style="width:100%" onclick="openServiceOptions('instagram')">Order Now</button>
+            </div>
+            <div class="stat-card" style="text-align:center">
+                <ion-icon name="logo-youtube" style="font-size:48px; color:#FF0000; margin-bottom:10px"></ion-icon>
+                <h3>YouTube</h3>
+                <p style="margin:15px 0; line-height:1.6; color:#555">
+                    Subscribers<br>
+                    Views<br>
+                    Likes<br>
+                    Comments<br>
+                    and more!
+                </p>
+                <button class="cta" style="width:100%" onclick="openServiceOptions('youtube')">Order Now</button>
+            </div>
+        </div>
+
+        
+    </main>
+
+    <div class="popup help-popup" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="popup-content help">
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.help-popup')">&times;</button>
+            <!-- Content injected via JS openSupportCenter() -->
+            <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                    const check = setInterval(() => { if(window.openSupportCenter) { window.openSupportCenter(); clearInterval(check); } }, 100);
+                });
+            </script>
+        </div>
+    </div>
+
+    <!-- Service Selection & Order Popup -->
+    <div class="popup service-popup" role="dialog" aria-hidden="true">
+        <div class="popup-content service-content">
+            <button class="close-icon" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer; z-index:10;" onclick="closePopup('.service-popup')">&times;</button>
+            <h2 id="service-popup-title">Select Option</h2>
+            
+            <!-- Step 1: Options Grid -->
+            <div id="service-options-grid" class="service-options-grid">
+                <!-- Options injected via JS -->
+            </div>
+
+            <!-- Step 2: Order Form -->
+            <div id="service-order-form" style="display:none; margin-top:20px;">
+                <div class="form-group">
+                    <label for="order-link" id="label-link">Link</label>
+                    <input type="url" id="order-link" class="form-input" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                    <label for="order-amount">Amount</label>
+                    <input type="number" id="order-amount" class="form-input" placeholder="1000" oninput="calculateTotal()" required>
+                    <small id="order-limits" style="color:#666; font-size:0.85rem; margin-top:5px; display:block;"></small>
+                </div>
+                
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; font-weight:600; font-size:1.1rem;">
+                    <span>Total:</span>
+                    <span>₹<span id="order-total">0</span></span>
+                </div>
+
+                <button class="cta" style="width:100%; margin-bottom:10px;" onclick="submitOrder()">Proceed to Payment</button>
+                <button style="width:100%; padding:12px; background:transparent; border:none; color:inherit; opacity:0.7; cursor:pointer;" onclick="backToOptions()">Back</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment & UTR Verification Popup -->
+    <div class="popup payment-popup" role="dialog" aria-hidden="true">
+        <div class="popup-content payment-content" style="max-width:400px">
+            <button class="close-icon" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer; z-index:10;" onclick="closePopup('.payment-popup')">&times;</button>
+            <h2>Complete Payment</h2>
+            <div style="text-align:center; margin-bottom:20px;">
+                <p>Scan QR Code to Pay: <strong id="pay-amount" style="font-size:1.2rem; color:#5c6cff">₹0.00</strong></p>
+                <img src="qr.jpeg" alt="Payment QR Code" style="width:200px; height:200px; margin:15px auto; display:block; border-radius:10px; border:1px solid #eee;">
+                <p style="font-size:0.9rem; color:#666;">UPI ID: <strong>8920904947@ptaxis</strong></p>
+            </div>
+            <div class="form-group">
+                <label for="utr-id">Transaction/UTR ID</label>
+                <input type="text" id="utr-id" class="form-input" placeholder="Enter 12-digit UTR ID">
+            </div>
+            <button class="cta" style="width:100%" onclick="processPayment()">Verify & Submit</button>
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button style="flex:1; padding:10px; background:#eee; color:#333; border:none; border-radius:8px; cursor:pointer; font-weight:500" onclick="backToOrder()">Back</button>
+                <button style="flex:1; padding:10px; background:#e0f7fa; color:#006064; border:none; border-radius:8px; cursor:pointer; font-weight:500" onclick="openPopup('.tutorial-popup')">How to Pay?</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Tutorial Popup -->
+    <div class="popup tutorial-popup" role="dialog" aria-hidden="true">
+        <div class="popup-content" style="max-width:800px; width:90%; text-align:left; position:relative; max-height: 90vh; overflow-y: auto;">
+            <button class="close-icon" style="position:sticky; top:15px; float:right; background:none; border:none; font-size:1.5rem; cursor:pointer; z-index:10;" onclick="closePopup('.tutorial-popup')">&times;</button>
+            <h2 style="text-align:center; margin-bottom:20px">Payment Steps</h2>
+            
+            <div style="display:flex; gap:30px; flex-wrap:wrap; align-items:flex-start;">
+                <div style="flex:1; min-width:280px;">
+                    <ol style="margin-left:20px; line-height:1.8; color:#555; font-size:0.95rem">
+                        <li>Open your UPI App (GPay, PhonePe, Paytm, etc).</li>
+                        <li>Scan the <strong>QR Code</strong> shown on the payment screen.</li>
+                        <li>Pay the exact amount displayed.</li>
+                        <li>After payment, find the <strong>12-digit UTR/Transaction ID</strong> in your app.</li>
+                        <li>Paste the UTR ID in the input box.</li>
+                        <li>Click <strong>Verify & Submit</strong> to place your order.</li>
+                    </ol>
+                </div>
+                <div style="flex:1; min-width:280px; text-align:center;">
+                    <p style="font-size:0.85rem; color:#666; margin-bottom:5px;">Example: Finding UTR in Paytm</p>
+                    <img src="utr.jpeg" alt="UTR Example" style="max-width:250px; height:auto; border-radius:8px; border:1px solid #ddd;">
+                </div>
+            </div>
+            <div style="margin-top:25px; text-align:center">
+                <button class="cta" style="width:100%; max-width:300px;" onclick="closePopup('.tutorial-popup')">I Understand</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Service Configuration with dummy prices
+        const serviceConfig = {
+            instagram: {
+                title: "Instagram",
+                options: [
+                    { name: "Followers", price: 0.40, icon: "people-outline", min: 10, max: 10000 },
+                    { name: "Likes", price: 0.05, icon: "heart-outline", min: 10, max: 100000 },
+                    { name: "Views", price: 0.002, icon: "eye-outline", min: 100, max: 1000000 },
+                    { name: "Comments", price: 0.2, icon: "chatbubble-outline", min: 50, max: 50000 },
+                    { name: "Reel Repost", price: 0.2, icon: "repeat-outline", min: 10, max: 1000 },
+                    { name: "Reel Share", price: 0.02, icon: "share-social-outline", min: 100, max: 100000 },
+                    { name: "Story Views", price: 0.04, icon: "aperture-outline", min: 10, max: 10000 }
+                ]
+            },
+            youtube: {
+                title: "YouTube",
+                options: [
+                    { name: "Subscribers", price: 2.40, icon: "person-add-outline", min: 50, max: 10000 },
+                    { name: "Likes", price: 0.3, icon: "thumbs-up-outline", min: 10, max: 10000 },
+                    { name: "Views", price: 0.40, icon: "play-circle-outline", min: 100, max: 100000 },
+                    { name: "Comments (Coming Soon)", price: 3.00, icon: "chatbubbles-outline" },
+                    { name: "Watch Time (Coming Soon)", price: 4.00, icon: "time-outline" },
+                    { name: "Comment Likes", price: 0.030, icon: "heart-circle-outline", min: 100, max: 100000 }
+                ]
+            }
+        };
+
+        let currentServiceData = null;
+        let selectedOptionData = null;
+
+        function openServiceOptions(platform) {
+            currentServiceData = serviceConfig[platform];
+            if(!currentServiceData) return;
+
+            // Reset UI to Step 1
+            document.getElementById('service-popup-title').innerText = currentServiceData.title + " Services";
+            document.getElementById('service-options-grid').style.display = 'grid';
+            document.getElementById('service-order-form').style.display = 'none';
+            
+            // Generate Buttons dynamically
+            const grid = document.getElementById('service-options-grid');
+            grid.innerHTML = '';
+            
+            currentServiceData.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'service-opt-btn';
+                btn.innerHTML = `<ion-icon name="${opt.icon}"></ion-icon> ${opt.name}`;
+                
+                if (opt.name.includes('(Coming Soon)')) {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.5';
+                    btn.style.cursor = 'not-allowed';
+                } else {
+                    btn.onclick = () => showOrderForm(opt);
+                }
+                grid.appendChild(btn);
+            });
+
+            openPopup('.service-popup');
+        }
+
+        function showOrderForm(option) {
+            selectedOptionData = option;
+            document.getElementById('service-popup-title').innerText = currentServiceData.title + " " + option.name;
+            document.getElementById('service-options-grid').style.display = 'none';
+            document.getElementById('service-order-form').style.display = 'block';
+            
+            // Dynamic Form Logic
+            const labelLink = document.getElementById('label-link');
+            const platform = currentServiceData.title;
+
+            // Reset defaults
+            labelLink.innerText = 'Link';
+
+            if (platform === 'YouTube') {
+                if (option.name === 'Subscribers') {
+                    labelLink.innerText = 'Channel Link';
+                } else {
+                    labelLink.innerText = 'Short/Video Link';
+                }
+            } else if (platform === 'Instagram') {
+                if (option.name === 'Followers' || option.name === 'Story Views') {
+                    labelLink.innerText = 'Profile URL';
+                } else {
+                    labelLink.innerText = 'Post/Reel Link';
+                }
+            }
+
+            // Set Limits Text and Attributes
+            const limitText = document.getElementById('order-limits');
+            const amountInput = document.getElementById('order-amount');
+
+            // Set placeholder unit
+            if (option.name.toLowerCase().includes('watch time')) {
+                amountInput.placeholder = '(in hours)';
+            } else {
+                amountInput.placeholder = '1000';
+            }
+
+            if (option.min && option.max) {
+                limitText.innerText = `Min: ${option.min} - Max: ${option.max}`;
+                amountInput.min = option.min;
+                amountInput.max = option.max;
+            } else {
+                limitText.innerText = '';
+                amountInput.removeAttribute('min');
+                amountInput.removeAttribute('max');
+            }
+
+            // Reset Form Fields
+            document.getElementById('order-link').value = '';
+            document.getElementById('order-amount').value = '';
+            document.getElementById('order-total').innerText = '0';
+        }
+
+        function backToOptions() {
+            document.getElementById('service-popup-title').innerText = currentServiceData.title + " Services";
+            document.getElementById('service-options-grid').style.display = 'grid';
+            document.getElementById('service-order-form').style.display = 'none';
+        }
+
+        function backToOrder() {
+            closePopup('.payment-popup');
+            openPopup('.service-popup');
+        }
+
+        function calculateTotal() {
+            const amount = parseFloat(document.getElementById('order-amount').value) || 0;
+            const price = selectedOptionData ? selectedOptionData.price : 0;
+            const total = Math.ceil(amount * price);
+            document.getElementById('order-total').innerText = total;
+        }
+
+        function submitOrder() {
+            const amount = parseFloat(document.getElementById('order-amount').value);
+            
+            if(!amount || isNaN(amount) || amount <= 0) {
+                showAlert("Please enter a valid amount", "Invalid Input");
+                return;
+            }
+
+            if (selectedOptionData && (amount < selectedOptionData.min || amount > selectedOptionData.max)) {
+                showAlert(`Amount must be between ${selectedOptionData.min} and ${selectedOptionData.max}`, "Limit Error");
+                return;
+            }
+
+            // Placeholder for actual order submission logic
+            // showAlert(`Redirecting to payment gateway...\nTotal: ₹${document.getElementById('order-total').innerText}`, "Processing Payment");
+            // closePopup('.service-popup');
+            
+            // Open Payment Popup
+            const total = document.getElementById('order-total').innerText;
+            document.getElementById('pay-amount').innerText = '₹' + total;
+            closePopup('.service-popup');
+            openPopup('.payment-popup');
+        }
+
+        function processPayment() {
+            const utr = document.getElementById('utr-id').value.trim();
+            // Strict validation: 12 characters, alphanumeric
+            if (!utr || utr.length !== 12 || !/^[a-zA-Z0-9]+$/.test(utr)) {
+                showAlert("Invalid UTR ID.\nIt must be exactly 12 alphanumeric characters.", "Validation Error");
+                return;
+            }
+
+            const orderData = {
+                service: currentServiceData.title,
+                option: selectedOptionData.name,
+                link: document.getElementById('order-link').value,
+                amount: parseFloat(document.getElementById('order-amount').value),
+                totalPrice: parseFloat(document.getElementById('order-total').innerText),
+                utr: utr
+            };
+
+            if (window.submitOrderToDB) {
+                window.submitOrderToDB(orderData, (orderId) => {
+                    showAlert("Order placed successfully! We will verify your payment shortly.", "Success");
+                    closePopup('.payment-popup');
+                    document.getElementById('utr-id').value = ''; // reset
+                }, (errMsg) => {
+                    showAlert("Failed to place order: " + errMsg, "Error");
+                });
+            } else {
+                showAlert("Database connection not initialized.", "System Error");
+            }
+        }
+    </script>
+
+</body>
+
+</html>

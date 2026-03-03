@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Orders - Zynex Social Media Services</title>
+    <meta name="description" content="Track and manage your Zynex social media growth orders.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="logo.png">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule defer src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <script src="script.js" defer></script>
+    <script type="module" src="firebase-init.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <aside class="sidebar" aria-label="Sidebar">
+        <div class="brand"><ion-icon name="layers-outline"></ion-icon><a href="index.html">Zynex</a></div>
+
+        <ul class="nav-list">
+            <li><a href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
+            <li><a href="services.html"><ion-icon name="cube-outline"></ion-icon>Services</a></li>
+            <li><a class="active" href="orders.html"><ion-icon name="notifications-outline"></ion-icon>Orders</a></li>
+        </ul>
+
+        <div class="section-title">AUTH</div>
+        <ul class="nav-list">
+            <li><a href="account.html"><ion-icon name="person-outline"></ion-icon>Profile</a></li>
+        </ul>
+
+        <div id="admin-section-title" class="section-title" style="display:none">ADMIN</div>
+        <ul id="admin-nav-list" class="nav-list" style="display:none">
+            <li><a href="admin.html"><ion-icon name="server-outline"></ion-icon>Server <span id="admin-sidebar-badge" class="nav-badge">0</span></a></li>
+        </ul>
+    </aside>
+
+    <header class="topbar">
+        <div class="left-controls">
+            <button class="hamburger" aria-label="Open menu" onclick="togglePanel()"><ion-icon name="menu-outline"></ion-icon></button>
+            <div id="headerAuthArea"></div>
+        </div>
+        <div class="controls">
+            <button onclick="openPopup('.help-popup')"><ion-icon name="help-circle-outline"></ion-icon>Help</button>
+        </div>
+    </header>
+
+    <main class="content">
+        <div style="margin-top:88px"></div>
+        
+        <!-- Logged In View -->
+        <div id="orders-content" style="display:none;">
+            <h2 style="margin-bottom:20px;">Order History</h2>
+            
+            <div class="orders-overview" style="overflow-x:auto;">
+                <table class="transaction-table" id="full-orders-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Service</th>
+                            <th>Link</th>
+                            <th>Quantity</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders-table-body">
+                        <!-- JS Injected -->
+                    </tbody>
+                </table>
+                
+                <div id="no-orders-msg" style="text-align:center; padding:50px; color:#888; display:none;">
+                    <ion-icon name="receipt-outline" style="font-size:48px; opacity:0.5; margin-bottom:10px;"></ion-icon>
+                    <p>No orders found.</p>
+                    <button class="cta" onclick="window.location.href='services.html'" style="margin-top:15px; background:#eee; color:#333;">Place Order</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logged Out View -->
+        <div id="logged-out-orders" style="text-align:center; padding:60px 20px; display:none;">
+            <ion-icon name="lock-closed-outline" style="font-size:52px; margin-bottom:18px; color:#5c6cff;"></ion-icon>
+            <h2>Please sign in to view your orders</h2>
+            <button class="cta" onclick="window.location.href='account.html'" style="margin-top:20px;">Go to Login</button>
+        </div>
+    </main>
+
+    <!-- Order Details Popup -->
+    <div class="popup order-details-popup" role="dialog" aria-hidden="true">
+        <div class="popup-content" style="max-width:500px; text-align:left; width:90%;">
+            <button class="close-icon" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer;" onclick="closePopup('.order-details-popup')">&times;</button>
+            <h2 style="margin-bottom:20px; text-align:center;">Order Status</h2>
+            <div id="order-details-content">
+                <!-- Content injected via JS -->
+            </div>
+            <div style="margin-top:25px; text-align:center">
+                <button class="cta" style="width:100%" onclick="closePopup('.order-details-popup')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="popup help-popup" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="popup-content help">
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.help-popup')">&times;</button>
+            <!-- Content injected via JS openSupportCenter() -->
+            <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                    // Wait for script.js/firebase-init to load
+                    const check = setInterval(() => { if(window.openSupportCenter) { window.openSupportCenter(); clearInterval(check); } }, 100);
+                });
+            </script>
+        </div>
+    </div>
+
+</body>
+
+</html>

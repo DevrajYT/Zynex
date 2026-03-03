@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zynex | Boost Your Social Media Presence - Instagram & YouTube Growth</title>
+    <meta name="description" content="Zynex is the ultimate platform to boost your social media presence. Get instant followers, likes, views, and comments for Instagram and YouTube. Secure, fast, and reliable services.">
+    <meta name="keywords" content="social media growth, buy instagram followers, buy youtube views, instagram likes, youtube subscribers, zynex, social media marketing, boost social media">
+    <meta name="author" content="Zynex">
+    <meta name="robots" content="index, follow">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Zynex | Boost Your Social Media Presence">
+    <meta property="og:description" content="Get instant followers, likes, views, and comments for Instagram and YouTube with Zynex.">
+    <meta property="og:image" content="https://zegrow-e1a2c.firebaseapp.com/logo.png">
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="logo.png">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule defer src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <script src="script.js" defer></script>
+    <script type="module" src="firebase-init.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <aside class="sidebar" aria-label="Sidebar">
+        <div class="brand"><ion-icon name="layers-outline"></ion-icon><a href="index.html">Zynex</a></div>
+
+        <ul class="nav-list">
+            <li><a class="active" href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
+            <li><a href="services.html"><ion-icon name="cube-outline"></ion-icon>Services</a></li>
+            <li><a href="orders.html"><ion-icon name="notifications-outline"></ion-icon>Orders</a></li>
+        </ul>
+
+        <div class="section-title">AUTH</div>
+        <ul class="nav-list">
+            <li><a href="account.html"><ion-icon name="person-outline"></ion-icon>Profile</a></li>
+        </ul>
+
+        <div id="admin-section-title" class="section-title" style="display:none">ADMIN</div>
+        <ul id="admin-nav-list" class="nav-list" style="display:none">
+            <li><a href="admin.html"><ion-icon name="server-outline"></ion-icon>Server <span id="admin-sidebar-badge" class="nav-badge">0</span></a></li>
+        </ul>
+    </aside>
+
+    <header class="topbar">
+
+        <div class="left-controls">
+            <button class="hamburger" onclick="togglePanel()">
+                <ion-icon name="menu-outline"></ion-icon>
+            </button>
+
+            <!-- Dynamic Auth Area -->
+            <div id="headerAuthArea"></div>
+        </div>
+
+        <div class="controls">
+            <button onclick="openPopup('.help-popup')">
+                <ion-icon name="help-circle-outline"></ion-icon>Help
+            </button>
+        </div>
+
+    </header>
+
+    <main class="content">
+        <div style="margin-top:88px"></div>
+    
+        <!-- Announcement Bar (Dynamic) -->
+        <div id="announcement-container"></div>
+
+        <!-- Logged-in View -->
+        <div id="dashboard-content" style="display: none;">
+            <div class="dashboard-header">
+                <h2>Welcome back, <span id="dashboard-username">User</span>!</h2>
+                <p>Here's a quick overview of your account.</p>
+            </div>
+    
+            <div class="dashboard-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                <div class="stat-card">
+                    <h4>Active Orders</h4>
+                    <p class="stat-value" id="dashboard-orders">0</p>
+                    <a href="orders.html" class="stat-link">View Orders</a>
+                </div>
+                <div class="stat-card">
+                    <h4>Total Spent</h4>
+                    <p class="stat-value" id="dashboard-spent">₹0.00</p>
+                    <a href="balance.html" class="stat-link">View History</a>
+                </div>
+            </div>
+    
+            <div class="quick-actions-grid">
+                <a href="services.html" class="action-card">
+                    <ion-icon name="rocket-outline"></ion-icon>
+                    <h3>Place a New Order</h3>
+                    <p>Browse our services and start a new campaign.</p>
+                </a>
+            </div>
+    
+            <div class="stat-card" style="margin-top: 30px;">
+                <h4>Recent Orders</h4>
+                <table class="transaction-table" id="recent-orders-table">
+                    <thead><tr><th>Service</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead>
+                    <tbody id="recent-orders-body"><td colspan="4" style="text-align:center; color:#999; padding: 20px;">No recent orders.</td></tbody>
+                </table>
+            </div>
+        </div>
+    
+        <!-- Logged-out View -->
+        <div id="logged-out-content" style="text-align: center; padding: 40px 20px; display: none;">
+            <img src="logo.png" alt="Zynex Logo" style="width: 100px; height: 100px; margin-bottom: 20px;">
+            <h1>Zynex - Premium Social Media Growth Services</h1>
+            <p style="max-width: 600px; margin: 20px auto 30px; color: #666; line-height: 1.6;">
+                The ultimate platform to boost your social media presence. Get followers, likes, views, and comments for Instagram and YouTube instantly.
+            </p>
+            <a href="account.html" class="cta">Get Started Now</a>
+        </div>
+    </main>
+
+    <div class="popup help-popup" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="popup-content help">
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.help-popup')">&times;</button>
+            <!-- Content injected via JS openSupportCenter() -->
+            <script>
+                // Initialize with default view
+                document.addEventListener('DOMContentLoaded', () => {
+                    if(window.openSupportCenter) window.openSupportCenter();
+                });
+            </script>
+        </div>
+    </div>
+
+</body>
+
+</html>
