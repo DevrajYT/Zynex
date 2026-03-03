@@ -308,8 +308,8 @@ onAuthStateChanged(auth, (user) => {
         // --- Logged-out UI State ---
         if (headerAuth) {
             headerAuth.innerHTML = `
-      <button class="get-started-btn" onclick="window.location.href='account.html'">
-        Get Started
+      <button class="get-started-btn" onclick="window.location.href='account.html?login=true'">
+        Login
       </button>`;
         }
         if (dashboardContent) dashboardContent.style.display = 'none';
@@ -486,6 +486,13 @@ window.saveSetting = function(key, value) {
 document.addEventListener('DOMContentLoaded', () => {
     if(localStorage.getItem('zynex_dark_mode') === 'true') document.body.classList.add('dark-mode');
     if(localStorage.getItem('zynex_compact_view') === 'true') document.body.classList.add('compact-view');
+
+    // Check for login query param to auto-open login popup
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('login') === 'true') {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        setTimeout(() => { if(window.openLogin) window.openLogin(); }, 300);
+    }
 });
 
 // ================= ORDER SYSTEM =================

@@ -7,7 +7,7 @@ const serviceConfig = {
         options: [
             { name: "Followers", price: 0.40, icon: "people-outline", min: 10, max: 10000 },
             { name: "Likes", price: 0.05, icon: "heart-outline", min: 10, max: 100000 },
-            { name: "Views", price: 0.002, icon: "eye-outline", min: 100, max: 1000000 },
+            { name: "Views", price: 0.008, icon: "eye-outline", min: 100, max: 1000000 },
             { name: "Comments", price: 0.2, icon: "chatbubble-outline", min: 50, max: 50000 },
             { name: "Reel Repost", price: 0.2, icon: "repeat-outline", min: 10, max: 1000 },
             { name: "Reel Share", price: 0.02, icon: "share-social-outline", min: 100, max: 100000 },
@@ -17,7 +17,7 @@ const serviceConfig = {
     youtube: {
         title: "YouTube",
         options: [
-            { name: "Subscribers", price: 2.40, icon: "person-add-outline", min: 50, max: 10000 },
+            { name: "Subscribers", price: 4.40, icon: "person-add-outline", min: 50, max: 10000 },
             { name: "Likes", price: 0.3, icon: "thumbs-up-outline", min: 10, max: 10000 },
             { name: "Views", price: 0.40, icon: "play-circle-outline", min: 100, max: 100000 },
             { name: "Comment Likes", price: 0.030, icon: "heart-circle-outline", min: 100, max: 100000 },
@@ -39,7 +39,7 @@ const costPrices = {
         'Story Views': 0.02
     },
     'YouTube': {
-        'Subscribers': 2.8, // Note: This is higher than the selling price in serviceConfig. Adjust as needed.
+        'Subscribers': 2.8,
         'Likes': 0.06,
         'Views': 0.33,
         'Comment Likes': 0.0165
