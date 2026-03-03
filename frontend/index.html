@@ -73,39 +73,57 @@
         <div id="announcement-container"></div>
 
         <!-- Logged-in View -->
-        <div id="dashboard-content" style="display: none;">
-            <div class="dashboard-header">
-                <h2>Welcome back, <span id="dashboard-username">User</span>!</h2>
-                <p>Here's a quick overview of your account.</p>
-            </div>
-    
-            <div class="dashboard-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-                <div class="stat-card">
-                    <h4>Active Orders</h4>
-                    <p class="stat-value" id="dashboard-orders">0</p>
-                    <a href="orders.html" class="stat-link">View Orders</a>
+        <div id="dashboard-content" style="display: none; animation: fadeIn 0.5s ease;">
+            <div class="welcome-banner">
+                <div class="banner-text">
+                    <h2>Welcome back, <span id="dashboard-username">User</span>!</h2>
+                    <p>Ready to boost your presence? Let's get started.</p>
                 </div>
-                <div class="stat-card">
-                    <h4>Total Spent</h4>
-                    <p class="stat-value" id="dashboard-spent">₹0.00</p>
-                    <a href="balance.html" class="stat-link">View History</a>
+                <div class="banner-visuals">
+                    <div class="mini-icon-float" style="--i:1; --s: 0.8"><ion-icon name="logo-instagram"></ion-icon></div>
+                    <div class="mini-icon-float" style="--i:2; --s: 1.0"><ion-icon name="logo-youtube"></ion-icon></div>
+                    <div class="mini-icon-float" style="--i:3; --s: 0.9"><ion-icon name="heart-outline"></ion-icon></div>
                 </div>
             </div>
     
-            <div class="quick-actions-grid">
-                <a href="services.html" class="action-card">
-                    <ion-icon name="rocket-outline"></ion-icon>
-                    <h3>Place a New Order</h3>
-                    <p>Browse our services and start a new campaign.</p>
-                </a>
-            </div>
-    
-            <div class="stat-card" style="margin-top: 30px;">
-                <h4>Recent Orders</h4>
-                <table class="transaction-table" id="recent-orders-table">
-                    <thead><tr><th>Service</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead>
-                    <tbody id="recent-orders-body"><td colspan="4" style="text-align:center; color:#999; padding: 20px;">No recent orders.</td></tbody>
-                </table>
+            <div class="dashboard-layout">
+                <div class="dashboard-main">
+                    <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr;">
+                        <div class="stat-card">
+                            <h4>Active Orders</h4>
+                            <p class="stat-value" id="dashboard-orders">0</p>
+                            <a href="orders.html" class="stat-link">View All Orders</a>
+                        </div>
+                        <div class="stat-card">
+                            <h4>Total Spent</h4>
+                            <p class="stat-value" id="dashboard-spent">₹0.00</p>
+                            <a href="balance.html" class="stat-link">View History</a>
+                        </div>
+                    </div>
+                    <div class="stat-card" style="margin-top: 30px;">
+                        <h4>Recent Orders</h4>
+                        <div class="table-responsive">
+                            <table class="transaction-table" id="recent-orders-table">
+                                <thead><tr><th>Service</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead>
+                                <tbody id="recent-orders-body"><td colspan="4" style="text-align:center; color:#999; padding: 20px;">No recent orders.</td></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="dashboard-sidebar">
+                    <div class="quick-actions-grid" style="grid-template-columns: 1fr; margin-top:0;">
+                        <a href="services.html" class="action-card">
+                            <ion-icon name="add-circle-outline"></ion-icon>
+                            <h3>Place a New Order</h3>
+                            <p>Browse our services and start a new campaign.</p>
+                        </a>
+                        <a href="orders.html" class="action-card">
+                            <ion-icon name="list-outline"></ion-icon>
+                            <h3>My Orders</h3>
+                            <p>Track the status of your active and past orders.</p>
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     
