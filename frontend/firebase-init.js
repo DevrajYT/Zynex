@@ -36,6 +36,8 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const database = getDatabase(app);
 
+window.isUserLoggedIn = () => auth.currentUser;
+
 const provider = new GoogleAuthProvider();
 
 
@@ -153,6 +155,23 @@ onAuthStateChanged(auth, (user) => {
         } else {
             if(adminSectionTitle) adminSectionTitle.style.display = "none";
             if(adminNavList) adminNavList.style.display = "none";
+        }
+
+        // --- Notification Badge Check on Load ---
+        const newUpdate = localStorage.getItem(`zynex_new_order_update_${user.uid}`) === 'true';
+        const onOrdersPage = window.location.pathname.endsWith('/orders.html');
+        const badge = document.getElementById('orders-nav-badge');
+
+        if (onOrdersPage) {
+            // On orders page, clear the flag and hide the badge
+            localStorage.removeItem(`zynex_new_order_update_${user.uid}`);
+            if (badge) badge.style.display = 'none';
+        } else if (newUpdate && badge) {
+            // Not on orders page, but there is a new update
+            badge.style.display = 'inline-block';
+            badge.innerText = ''; // Make it a dot
+        } else if (badge) {
+            badge.style.display = 'none';
         }
 
         // --- Fetch Announcement ---
@@ -774,6 +793,7 @@ window.renderAdminStats = function(orders) {
     });
 
     const profit = completedRevenue - completedCost;
+    window.currentAdminProfit = profit;
 
     const revEl = document.getElementById('admin-total-revenue');
     const ordEl = document.getElementById('admin-total-orders');
@@ -786,6 +806,35 @@ window.renderAdminStats = function(orders) {
     if(profitEl) {
         profitEl.innerText = "₹" + profit.toFixed(2);
         profitEl.style.color = profit >= 0 ? '#00c853' : '#ff4d4f';
+    }
+
+    // --- Profit Change Display ---
+    const storedRef = localStorage.getItem('zynex_admin_ref_profit');
+    const refProfit = storedRef ? parseFloat(storedRef) : 0;
+    const change = profit - refProfit;
+
+    let changeEl = document.getElementById('admin-profit-change');
+    if (!changeEl && profitEl) {
+        const card = profitEl.closest('.stat-card');
+        if (card && card.parentNode) {
+            const newCard = document.createElement('div');
+            newCard.className = 'stat-card';
+            newCard.innerHTML = `<h4>Profit Change</h4><p class="stat-value" id="admin-profit-change">₹0.00</p><button onclick="resetProfitChange()" style="background:#eee;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:0.8rem;margin-top:5px;color:#333">Reset</button>`;
+            card.parentNode.insertBefore(newCard, card.nextSibling);
+            changeEl = newCard.querySelector('#admin-profit-change');
+        }
+    }
+    if (changeEl) {
+        changeEl.innerText = (change >= 0 ? "+" : "") + "₹" + change.toFixed(2);
+        changeEl.style.color = change >= 0 ? '#00c853' : '#ff4d4f';
+    }
+};
+
+window.resetProfitChange = function() {
+    if (typeof window.currentAdminProfit !== 'undefined') {
+        localStorage.setItem('zynex_admin_ref_profit', window.currentAdminProfit);
+        if (window.allAdminOrders) renderAdminStats(window.allAdminOrders);
+        showAlert("Profit tracker reset.", "Success");
     }
 };
 
@@ -1162,12 +1211,8 @@ window.switchAdminTab = function(tabName) {
     
     // Show selected
     document.getElementById('admin-tab-' + tabName).style.display = 'block';
-    // Highlight button (simple logic assuming order matches)
+    // Highlight button
     const btns = document.querySelectorAll('.admin-tab-btn');
-    if(tabName === 'orders') btns[0].classList.add('active');
-    if(tabName === 'users') btns[1].classList.add('active');
-    if(tabName === 'settings') btns[2].classList.add('active');
-    if(tabName === 'tickets') btns[1].classList.add('active'); // Adjust index if needed based on HTML order
     if(tabName === 'orders' && btns[0]) btns[0].classList.add('active');
     if(tabName === 'tickets' && btns[1]) btns[1].classList.add('active');
     if(tabName === 'users' && btns[2]) btns[2].classList.add('active');
@@ -1621,17 +1666,41 @@ window.filterAdminTickets = function() {
 // ================= NOTIFICATIONS SYSTEM =================
 
 window.setupUserNotifications = function(user) {
+    // Request Browser Notification Permission if not already granted or denied
+    if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+        Notification.requestPermission();
+    }
+
     // 1. Order Status Updates
     const ordersRef = ref(database, `users/${user.uid}/orders`);
     onChildChanged(ordersRef, (snapshot) => {
         const order = snapshot.val();
-        if (order.status === 'completed') {
-            showAlert(`Order #${order.id.slice(-6)} for ${order.service} is now Completed!`, "Order Update");
-        } else if (order.status === 'cancelled') {
-            showAlert(`Order #${order.id.slice(-6)} was Cancelled. Check details for reason.`, "Order Update");
-        } else if (order.status === 'inprocess') {
-            // Optional: notify on process start
-            // showAlert(`Order #${order.id.slice(-6)} is now In Process.`, "Order Update");
+
+        // Set flag in local storage to indicate a new, unseen update
+        localStorage.setItem(`zynex_new_order_update_${user.uid}`, 'true');
+
+        // Show red dot on nav item, unless user is already on the orders page
+        if (!window.location.pathname.endsWith('/orders.html')) {
+            const badge = document.getElementById('orders-nav-badge');
+            if (badge) {
+                badge.style.display = 'inline-block';
+                badge.innerText = ''; // An empty string will render as a dot with the nav-badge CSS
+            }
+        }
+
+        // If the page is hidden (user is on another tab/window), send a browser notification
+        if (document.hidden) {
+            if ("Notification" in window && Notification.permission === "granted") {
+                let title = "Zynex Order Update";
+                let body = `There's an update on your order #${order.id.slice(-6)}.`;
+                if (order.status === 'completed') body = `Your order for ${order.service} is now Completed!`;
+                if (order.status === 'cancelled') body = `Your order #${order.id.slice(-6)} was Cancelled.`;
+                
+                new Notification(title, { body: body, icon: "logo.png" });
+            }
+        } else { // Otherwise, show an in-app alert
+            if (order.status === 'completed') showAlert(`Order #${order.id.slice(-6)} for ${order.service} is now Completed!`, "Order Update");
+            if (order.status === 'cancelled') showAlert(`Order #${order.id.slice(-6)} was Cancelled. Check details for reason.`, "Order Update");
         }
     });
 
