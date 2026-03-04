@@ -14,6 +14,7 @@ const checkAdmin = require('./admin');
 // Route Imports
 const userRoutes = require('./userRoutes');
 const orderRoutes = require('./orderRoutes');
+const ticketRoutes = require('./ticketRoutes');
 const adminRoutes = require('./adminRoutes');
 
 const app = express();
@@ -41,6 +42,7 @@ app.use(express.json()); // To parse JSON bodies
 // --- API Routes ---
 app.use('/api', userRoutes);
 app.use('/api', orderRoutes);
+app.use('/api', ticketRoutes);
 
 // Admin routes are protected by both auth and admin checks
 app.use('/api/admin', verifyFirebaseToken, checkAdmin, adminRoutes);

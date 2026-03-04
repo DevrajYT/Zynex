@@ -81,6 +81,22 @@ router.put('/orders/:userId/:orderId', async (req, res) => {
     }
 });
 
+// @route   DELETE /api/admin/orders/:userId/:orderId
+// @desc    Delete an order
+// @access  Admin
+router.delete('/orders/:userId/:orderId', async (req, res) => {
+    const { userId, orderId } = req.params;
+    try {
+        const orderRef = db.ref(`users/${userId}/orders/${orderId}`);
+        await orderRef.remove();
+        res.json({ msg: 'Order deleted successfully.' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+
 // @route   GET /api/admin/stats
 // @desc    Get dashboard statistics
 // @access  Admin
@@ -98,6 +114,16 @@ router.get('/stats', async (req, res) => {
         let completedCost = 0;
         let pendingCount = 0;
         let totalOrders = 0;
+
+        const ticketsSnapshot = await db.ref('tickets').once('value');
+        let openTicketsCount = 0;
+        if (ticketsSnapshot.exists()) {
+            ticketsSnapshot.forEach(child => {
+                if (child.val().status === 'open') {
+                    openTicketsCount++;
+                }
+            });
+        }
 
         Object.values(users).forEach(user => {
             if (user.orders) {
@@ -121,8 +147,40 @@ router.get('/stats', async (req, res) => {
         });
 
         const profit = completedRevenue - completedCost;
-        res.json({ totalRevenue, totalProfit: profit, totalOrders, pendingCount });
+        res.json({ totalRevenue, totalProfit: profit, totalOrders, pendingCount, openTicketsCount });
 
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   GET /api/admin/users
+// @desc    Get all users with aggregated stats
+// @access  Admin
+router.get('/users', async (req, res) => {
+    try {
+        const usersRef = db.ref('users');
+        const snapshot = await usersRef.once('value');
+        if (!snapshot.exists()) {
+            return res.json([]);
+        }
+
+        const users = snapshot.val();
+        const usersList = Object.keys(users).map(uid => {
+            const u = users[uid];
+            let spent = 0;
+            let count = 0;
+            if(u.orders) {
+                Object.values(u.orders).forEach(o => {
+                    if(o.status !== 'cancelled') spent += (parseFloat(o.totalPrice)||0);
+                    count++;
+                });
+            }
+            return { uid, username: u.username, email: u.email, totalSpent: spent, totalOrders: count };
+        }).sort((a,b) => b.totalSpent - a.totalSpent);
+
+        res.json(usersList);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');
@@ -151,5 +209,76 @@ router.post('/set-admin', async (req, res) => {
     }
 });
 
+// --- ADMIN TICKET MANAGEMENT ---
+
+// @route   GET /api/admin/tickets
+// @desc    Get all tickets
+// @access  Admin
+router.get('/tickets', async (req, res) => {
+    try {
+        const snapshot = await db.ref('tickets').orderByChild('timestamp').once('value');
+        if (!snapshot.exists()) return res.json([]);
+        
+        const tickets = [];
+        snapshot.forEach(child => {
+            tickets.push({ id: child.key, ...child.val() });
+        });
+
+        res.json(tickets.reverse()); // Newest first
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   POST /api/admin/tickets/:id/replies
+// @desc    Reply to a ticket as admin
+// @access  Admin
+router.post('/tickets/:id/replies', async (req, res) => {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ msg: 'Message is required.' });
+
+    try {
+        const ticketRef = db.ref(`tickets/${req.params.id}`);
+        const replyRef = ticketRef.child('replies').push();
+        await replyRef.set({ sender: 'admin', message, timestamp: Date.now() });
+        await ticketRef.update({ timestamp: Date.now(), status: 'open' }); // Re-open on reply
+
+        res.status(201).json({ msg: 'Reply sent.' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   PUT /api/admin/tickets/:id/status
+// @desc    Change a ticket's status
+// @access  Admin
+router.put('/tickets/:id/status', async (req, res) => {
+    const { status } = req.body;
+    if (status !== 'open' && status !== 'closed') {
+        return res.status(400).json({ msg: 'Invalid status.' });
+    }
+    try {
+        await db.ref(`tickets/${req.params.id}`).update({ status });
+        res.json({ msg: `Ticket status set to ${status}.` });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   DELETE /api/admin/tickets/:id
+// @desc    Delete a ticket
+// @access  Admin
+router.delete('/tickets/:id', async (req, res) => {
+    try {
+        await db.ref(`tickets/${req.params.id}`).remove();
+        res.json({ msg: 'Ticket deleted.' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
 
 module.exports = router;
