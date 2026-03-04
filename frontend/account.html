@@ -71,53 +71,60 @@
 		<!-- Profile Section (hidden until login) -->
 		<section id="profileSection" style="display:none; padding:40px 20px;">
 
-			<div class="profile-card">
-				<button class="settings-icon-btn" onclick="openPopup('.settings-popup')" aria-label="Settings">
-					<ion-icon name="settings-outline"></ion-icon>
-				</button>
-
-				<div class="profile-header">
-					<div class="profile-avatar">
-						<ion-icon id="defaultProfileIcon" name="person-circle-outline"></ion-icon>
-						<img id="profileImage" src="" style="display:none">
-						<input type="file" id="imageUpload" hidden>
-						<button class="edit-avatar" onclick="document.getElementById('imageUpload').click()">
-							<ion-icon name="camera-outline"></ion-icon>
-						</button>
-					</div>
-
-					<div class="profile-name-section">
-						<h2 id="profileName">Username</h2>
-						<button class="edit-name" onclick="editUsername()">
-							<ion-icon name="create-outline"></ion-icon>
-						</button>
-					</div>
-				</div>
-
-				<div class="profile-details">
-
-					<div class="detail-box">
-						<h4>Account Type</h4>
-						<p>Basic</p>
-					</div>
-
-					<div class="detail-box">
-						<h4>Status</h4>
-						<p style="color:green;">Active</p>
-					</div>
-
-					<div class="detail-box">
-						<h4>Total Orders</h4>
-						<p id="profileTotalOrders">0</p>
-					</div>
-
-				</div>
-
-				<div style="margin-top:30px; text-align:center;">
-					<button class="logout-btn" onclick="logoutUser()">Logout</button>
-				</div>
-
-			</div>
+			<div class="profile-container">
+                <!-- Left Column: Identity Card -->
+                <div class="profile-identity-card">
+                    <div class="profile-cover"></div>
+                    <div class="profile-avatar-wrapper">
+                        <div class="profile-avatar">
+                            <ion-icon id="defaultProfileIcon" name="person-circle-outline"></ion-icon>
+                            <img id="profileImage" src="" style="display:none">
+                            <input type="file" id="imageUpload" hidden>
+                            <button class="edit-avatar-btn" onclick="document.getElementById('imageUpload').click()">
+                                <ion-icon name="camera-outline"></ion-icon>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="profile-identity-info">
+                        <h2 id="profileName">Username</h2>
+                        <p id="profileEmail">user@example.com</p>
+                        <span class="badge-role">Member</span>
+                        <div class="profile-actions">
+                            <button class="btn-outline" onclick="editUsername()">Edit Profile</button>
+                            <button class="btn-outline" onclick="openPopup('.settings-popup')">Settings</button>
+                        </div>
+                    </div>
+                </div>
+            
+                <!-- Right Column: Stats & Details -->
+                <div class="profile-details-grid">
+                    <!-- Stats Row -->
+                    <div class="stats-row">
+                        <div class="profile-stat-card">
+                            <div class="icon-box blue"><ion-icon name="cart-outline"></ion-icon></div>
+                            <div><h3>Total Orders</h3><p id="profileTotalOrders">0</p></div>
+                        </div>
+                        <div class="profile-stat-card">
+                            <div class="icon-box green"><ion-icon name="wallet-outline"></ion-icon></div>
+                            <div><h3>Total Spent</h3><p id="profileTotalSpent">₹0.00</p></div>
+                        </div>
+                        <div class="profile-stat-card">
+                            <div class="icon-box purple"><ion-icon name="calendar-outline"></ion-icon></div>
+                            <div><h3>Joined</h3><p id="profileJoined">Loading...</p></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Account Info -->
+                    <div class="profile-info-section">
+                        <h3>Account Information</h3>
+                        <div class="info-row"><span class="label">User ID</span><span class="value" id="profileUID" style="font-family:monospace">...</span></div>
+                        <div class="info-row"><span class="label">Status</span><span class="value status-active">Active</span></div>
+                        <div class="info-row"><span class="label">Last Login</span><span class="value" id="profileLastLogin">Just now</span></div>
+                    </div>
+            
+                    <button class="logout-btn-full" onclick="logoutUser()">Log Out</button>
+                </div>
+            </div>
 
 		</section>
 	</main>
@@ -160,8 +167,8 @@
 						<input type="checkbox" id="pushNotifs" onchange="saveSetting('pushNotifs', this.checked)" checked>
 					</div>
 					<div class="setting-item">
-						<span>Order Status SMS</span>
-						<input type="checkbox" id="orderSms" onchange="saveSetting('orderSms', this.checked)">
+						<span>Order Status Updates</span>
+						<input type="checkbox" id="orderStatusNotifs" onchange="toggleOrderStatusNotifs(this.checked)" checked>
 					</div>
 					<div class="setting-item">
 						<span>Promotional Offers</span>
@@ -324,7 +331,7 @@
 			if(localStorage.getItem('zynex_dark_mode') === 'true') document.getElementById('darkModeToggle').checked = true;
 			if(localStorage.getItem('zynex_compact_view') === 'true') document.getElementById('compactModeToggle').checked = true;
 			
-			['emailUpdates', 'pushNotifs', 'orderSms', 'promoOffers'].forEach(id => {
+			['emailUpdates', 'pushNotifs', 'orderStatusNotifs', 'promoOffers'].forEach(id => {
 				const val = localStorage.getItem('zynex_setting_' + id);
 				if(val !== null) document.getElementById(id).checked = (val === 'true');
 			});

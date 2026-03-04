@@ -170,18 +170,18 @@ onAuthStateChanged(auth, (user) => {
         }
 
         // --- Notification Badge Check on Load ---
-        const newUpdate = localStorage.getItem(`zynex_new_order_update_${user.uid}`) === 'true';
+        const updateCount = parseInt(localStorage.getItem(`zynex_order_update_count_${user.uid}`) || '0');
         const onOrdersPage = window.location.pathname.endsWith('/orders.html');
         const badge = document.getElementById('orders-nav-badge');
 
         if (onOrdersPage) {
             // On orders page, clear the flag and hide the badge
-            localStorage.removeItem(`zynex_new_order_update_${user.uid}`);
+            localStorage.setItem(`zynex_order_update_count_${user.uid}`, '0');
             if (badge) badge.style.display = 'none';
-        } else if (newUpdate && badge) {
+        } else if (updateCount > 0 && badge) {
             // Not on orders page, but there is a new update
             badge.style.display = 'inline-block';
-            badge.innerText = ''; // Make it a dot
+            badge.innerText = updateCount > 99 ? '99+' : updateCount;
         } else if (badge) {
             badge.style.display = 'none';
         }
@@ -250,6 +250,13 @@ onAuthStateChanged(auth, (user) => {
                 if (profileUIDEl) profileUIDEl.innerText = user.uid;
                 const profileTotalOrdersEl = document.getElementById('profileTotalOrders');
                 if (profileTotalOrdersEl) profileTotalOrdersEl.innerText = totalOrders;
+                const profileTotalSpentEl = document.getElementById('profileTotalSpent');
+                if (profileTotalSpentEl) profileTotalSpentEl.innerText = `₹${totalSpent.toFixed(2)}`;
+                
+                const profileJoinedEl = document.getElementById('profileJoined');
+                if (profileJoinedEl && user.metadata.creationTime) profileJoinedEl.innerText = new Date(user.metadata.creationTime).toLocaleDateString();
+                const profileLastLoginEl = document.getElementById('profileLastLogin');
+                if (profileLastLoginEl && user.metadata.lastSignInTime) profileLastLoginEl.innerText = new Date(user.metadata.lastSignInTime).toLocaleString();
 
                 // == Load User Settings ==
                 if (data.settings) {
@@ -513,6 +520,13 @@ window.saveSetting = function(key, value) {
     const user = auth.currentUser;
     if(user) {
         update(ref(database, `users/${user.uid}/settings`), { [key]: value });
+    }
+};
+
+window.toggleOrderStatusNotifs = function(isChecked) {
+    saveSetting('orderStatusNotifs', isChecked);
+    if (isChecked && "Notification" in window && Notification.permission !== "granted") {
+        Notification.requestPermission();
     }
 };
 
@@ -1699,31 +1713,33 @@ window.filterAdminTickets = function() {
 // ================= NOTIFICATIONS SYSTEM =================
 
 window.setupUserNotifications = function(user) {
-    // Request Browser Notification Permission if not already granted or denied
-    if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-        Notification.requestPermission();
-    }
-
     // 1. Order Status Updates
     const ordersRef = ref(database, `users/${user.uid}/orders`);
     onChildChanged(ordersRef, (snapshot) => {
+        // Check setting (default to true if null)
+        const settingEnabled = localStorage.getItem('zynex_setting_orderStatusNotifs') !== 'false';
+        if (!settingEnabled) return;
+
         const order = snapshot.val();
 
-        // Set flag in local storage to indicate a new, unseen update
-        localStorage.setItem(`zynex_new_order_update_${user.uid}`, 'true');
+        // Increment update count
+        let count = parseInt(localStorage.getItem(`zynex_order_update_count_${user.uid}`) || '0');
+        count++;
+        localStorage.setItem(`zynex_order_update_count_${user.uid}`, count);
 
-        // Show red dot on nav item, unless user is already on the orders page
+        // Show red number on nav item, unless user is already on the orders page
         if (!window.location.pathname.endsWith('/orders.html')) {
             const badge = document.getElementById('orders-nav-badge');
             if (badge) {
                 badge.style.display = 'inline-block';
-                badge.innerText = ''; // An empty string will render as a dot with the nav-badge CSS
+                badge.innerText = count > 99 ? '99+' : count;
             }
         }
 
         // If the page is hidden (user is on another tab/window), send a browser notification
         if (document.hidden) {
-            if ("Notification" in window && Notification.permission === "granted") {
+            // Check both push notification master switch and permission
+            if ("Notification" in window && Notification.permission === "granted" && localStorage.getItem('zynex_setting_pushNotifs') !== 'false') {
                 let title = "Zynex Order Update";
                 let body = `There's an update on your order #${order.id.slice(-6)}.`;
                 if (order.status === 'completed') body = `Your order for ${order.service} is now Completed!`;
