@@ -402,22 +402,25 @@ document.getElementById("imageUpload")?.addEventListener("change", function (evt
 });
 
 window.uploadProfileImage = async function (file) {
-    const url = "https://api.cloudinary.com/v1_1/zynexcloud/image/upload";
-    const preset = "zynex"; // unsigned preset
+    // Cloudinary Config
+    // Cloud Name: zynexcloud
+    // Preset: zynex (Must be 'Unsigned' in Cloudinary Settings)
+    const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/zynexcloud/image/upload";
+    const CLOUDINARY_UPLOAD_PRESET = "zynex";
 
     const form = new FormData();
     form.append("file", file);
-    form.append("upload_preset", preset);
+    form.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
 
     try {
-        const res = await fetch(url, {
+        const res = await fetch(CLOUDINARY_URL, {
             method: "POST",
             body: form,
         });
 
         const data = await res.json();
 
-        if (data.secure_url) {
+        if (res.ok && data.secure_url) {
             const imgEl = document.getElementById("profileImage");
             const iconEl = document.getElementById("defaultProfileIcon");
             if(imgEl) { imgEl.src = data.secure_url; imgEl.style.display = "block"; }
@@ -427,10 +430,18 @@ window.uploadProfileImage = async function (file) {
             if (user) {
                 // Save URL in Realtime DB
                 set(ref(database, "users/" + user.uid + "/photoURL"), data.secure_url);
+                // Update both Firebase Auth profile and Realtime Database
+                await updateProfile(user, { photoURL: data.secure_url });
+                await set(ref(database, "users/" + user.uid + "/photoURL"), data.secure_url);
             }
 
             showAlert("Profile picture updated!", "Success");
         } else throw "Upload failed";
+        } else {
+            // Provide a more specific error from Cloudinary if available
+            const errorMessage = data.error ? data.error.message : "Upload failed. Check console for details.";
+            throw new Error(errorMessage);
+        }
 
     } catch (err) {
         console.error(err);
