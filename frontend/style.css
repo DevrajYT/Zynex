@@ -1354,3 +1354,11 @@ body.dark-mode .icon-float { background: rgba(30, 30, 30, 0.8); border-color: #4
 body.dark-mode .icon-float:nth-child(3) { background: #2c1f23; }
 body.dark-mode .icon-float:nth-child(4) { background: #232332; }
 body.dark-mode .icon-float:nth-child(5) { background: #2b2b2b; }
+
+/* Inline Error Text */
+.error-text {
+    color: #ff4d4f;
+    font-size: 0.85rem;
+    margin-top: 5px;
+    display: none;
+}

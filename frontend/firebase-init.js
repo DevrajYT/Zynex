@@ -68,13 +68,20 @@ window.googleLogin = function () {
 
 // ================= REGISTER =================
 window.registerUser = function () {
+    clearInlineErrors();
     const username = document.getElementById("reg-user").value;
     const email = document.getElementById("reg-email").value;
     const password = document.getElementById("reg-pass").value;
     const confirmPassword = document.getElementById("reg-pass2").value;
 
-    if (password !== confirmPassword) {
-        showAlert("Passwords do not match!", "Error");
+    let hasError = false;
+    if(!username) { showInlineError('error-reg-user', 'Username is required'); hasError = true; }
+    if(!email) { showInlineError('error-reg-email', 'Email is required'); hasError = true; }
+    if(!password) { showInlineError('error-reg-pass', 'Password is required'); hasError = true; }
+    if(password !== confirmPassword) { showInlineError('error-reg-pass2', 'Passwords do not match'); hasError = true; }
+    else if(password && password.length < 6) { showInlineError('error-reg-pass', 'Password must be at least 6 characters'); hasError = true; }
+
+    if (hasError) {
         return;
     }
 
@@ -95,7 +102,7 @@ window.registerUser = function () {
             });
         })
         .catch((error) => {
-            showAlert(error.message, "Registration Error");
+            showInlineError('error-reg-general', error.message);
         });
 };
 
@@ -103,8 +110,12 @@ window.registerUser = function () {
 
 // ================= LOGIN =================
 window.loginUser = function () {
+    clearInlineErrors();
     const email = document.getElementById("login-email").value;
     const password = document.getElementById("login-pass").value;
+
+    if(!email) { showInlineError('error-login-email', 'Email is required'); return; }
+    if(!password) { showInlineError('error-login-pass', 'Password is required'); return; }
 
     signInWithEmailAndPassword(auth, email, password)
         .then((userCredential) => {
@@ -112,7 +123,8 @@ window.loginUser = function () {
             closeLogin();
         })
         .catch((error) => {
-            showAlert(error.message, "Login Error");
+            // Generic error for security, or specific error.message
+            showInlineError('error-login-general', "Invalid email or password.");
         });
 };
 
@@ -435,22 +447,25 @@ window.resetPassword = function() {
 };
 
 window.handleChangePassword = function() {
+    clearInlineErrors();
     const oldPass = document.getElementById('cp-old').value;
     const newPass = document.getElementById('cp-new').value;
     const confirmPass = document.getElementById('cp-confirm').value;
 
-    if (!oldPass || !newPass || !confirmPass) {
-        showAlert("Please fill in all fields.", "Error");
-        return;
-    }
+    let hasError = false;
+    if (!oldPass) { showInlineError('error-cp-old', 'Current password is required'); hasError = true; }
+    if (!newPass) { showInlineError('error-cp-new', 'New password is required'); hasError = true; }
+    if (!confirmPass) { showInlineError('error-cp-confirm', 'Confirm password is required'); hasError = true; }
+    
     if (newPass !== confirmPass) {
-        showAlert("New passwords do not match.", "Error");
-        return;
+        showInlineError('error-cp-confirm', "New passwords do not match.");
+        hasError = true;
+    } else if (newPass && newPass.length < 6) {
+        showInlineError('error-cp-new', "Password should be at least 6 characters.");
+        hasError = true;
     }
-    if (newPass.length < 6) {
-        showAlert("Password should be at least 6 characters.", "Weak Password");
-        return;
-    }
+
+    if(hasError) return;
 
     const user = auth.currentUser;
     if (!user) return;
@@ -466,7 +481,7 @@ window.handleChangePassword = function() {
             document.getElementById('cp-confirm').value = '';
         }).catch(err => showAlert(err.message, "Update Error"));
     }).catch(err => {
-        showAlert("Incorrect old password.", "Authentication Failed");
+        showInlineError('error-cp-old', "Incorrect old password.");
     });
 };
 
@@ -1018,10 +1033,12 @@ window.openAdminManage = function(userId, orderId) {
             <div class="form-group" style="margin-bottom:10px">
                 <label style="font-size:0.8rem; color:#666">Link</label>
                 <input type="text" id="edit-order-link" class="form-input" value="${sanitize(order.link)}" style="padding:6px;">
+                <small id="error-edit-link" class="error-text"></small>
             </div>
             <div class="form-group" style="margin-bottom:10px">
                 <label style="font-size:0.8rem; color:#666">UTR</label>
                 <input type="text" id="edit-order-utr" class="form-input" value="${sanitize(order.utr || '')}" style="padding:6px;">
+                <small id="error-edit-utr" class="error-text"></small>
             </div>
             <button class="cta" style="width:100%; padding:8px" onclick="saveAdminOrderDetails()">Save Changes</button>
         </div>
@@ -1123,8 +1140,12 @@ window.toggleAdminEditMode = function() {
 
 window.saveAdminOrderDetails = function() {
     if (!currentAdminOrder) return;
+    clearInlineErrors();
     const newLink = document.getElementById('edit-order-link').value;
     const newUtr = document.getElementById('edit-order-utr').value;
+
+    if(!newLink) { showInlineError('error-edit-link', 'Link is required'); return; }
+    if(!newUtr) { showInlineError('error-edit-utr', 'UTR is required'); return; }
 
     update(ref(database, `users/${currentAdminOrder.userId}/orders/${currentAdminOrder.id}`), {
         link: newLink,
@@ -1253,7 +1274,10 @@ window.exportOrdersToCSV = function() {
 };
 
 window.saveAnnouncement = function() {
+    clearInlineErrors();
     const msg = document.getElementById('admin-announcement-input').value.trim();
+    if(!msg) { showInlineError('error-announcement', 'Message cannot be empty'); return; }
+
     set(ref(database, 'system/announcement'), msg)
         .then(() => showAlert("Announcement updated!", "Success"))
         .catch(e => showAlert(e.message, "Error"));
@@ -1464,8 +1488,11 @@ window.viewUserTicket = function(ticketId) {
             
             ${t.status === 'open' ? `
             <div style="display:flex; gap:5px">
-                <input type="text" id="user-reply-input" class="form-input" placeholder="Type a reply..." style="flex:1" value="${draftText}">
-                <button class="cta" style="padding:0 15px" onclick="replyToTicket('${t.id}', 'user')"><ion-icon name="send"></ion-icon></button>
+                <div style="flex:1">
+                    <input type="text" id="user-reply-input" class="form-input" placeholder="Type a reply..." style="width:100%" value="${draftText}">
+                    <small id="error-user-reply" class="error-text"></small>
+                </div>
+                <button class="cta" style="padding:0 15px; height:42px" onclick="replyToTicket('${t.id}', 'user')"><ion-icon name="send"></ion-icon></button>
             </div>` : '<p style="text-align:center; color:#888; background:#eee; padding:8px; border-radius:6px">This ticket is closed.</p>'}
             
             <div style="margin-top:15px; text-align:center">
@@ -1484,9 +1511,15 @@ window.viewUserTicket = function(ticketId) {
 };
 
 window.replyToTicket = function(ticketId, sender) {
+    clearInlineErrors();
     const inputId = sender === 'user' ? 'user-reply-input' : 'admin-ticket-reply';
+    const errorId = sender === 'user' ? 'error-user-reply' : 'error-ticket-reply';
     const msg = document.getElementById(inputId).value.trim();
-    if(!msg) return;
+    
+    if(!msg) {
+        showInlineError(errorId, 'Message cannot be empty');
+        return;
+    }
 
     const timestamp = Date.now();
     const replyRef = push(ref(database, `tickets/${ticketId}/replies`));

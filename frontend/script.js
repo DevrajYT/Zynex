@@ -88,6 +88,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
 });
 
+// ================= GLOBAL ERROR HELPERS =================
+window.showInlineError = function(id, msg) {
+    const el = document.getElementById(id);
+    if(el) {
+        el.innerText = msg;
+        el.style.display = 'block';
+    }
+};
+window.clearInlineErrors = function() {
+    document.querySelectorAll('.error-text').forEach(el => el.style.display = 'none');
+};
+
 // ================= CUSTOM POPUP SYSTEM =================
 // Injects generic popup HTML into every page automatically
 document.addEventListener('DOMContentLoaded', () => {
@@ -115,7 +127,8 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="popup-content" style="max-width:320px">
             <h3 id="prompt-title" style="margin-bottom:10px">Input Required</h3>
             <p id="prompt-msg" style="color:#666; margin-bottom:15px"></p>
-            <input type="text" id="prompt-input" class="form-input" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; margin-bottom:20px; outline:none">
+            <input type="text" id="prompt-input" class="form-input" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; margin-bottom:5px; outline:none">
+            <small id="prompt-error" class="error-text" style="margin-bottom:15px"></small>
             <div style="display:flex; gap:10px;">
                 <button id="prompt-submit-btn" style="flex:1; padding:10px; background:#5c6cff; color:white; border:none; border-radius:8px; cursor:pointer">Submit</button>
                 <button onclick="closeCustomPopup('custom-prompt')" style="flex:1; padding:10px; background:#eee; color:#333; border:none; border-radius:8px; cursor:pointer">Cancel</button>
@@ -148,10 +161,17 @@ window.showConfirm = function(msg, onYes) {
 window.showPrompt = function(msg, onSubmit) {
     document.getElementById('prompt-msg').innerText = msg;
     const input = document.getElementById('prompt-input');
+    const errorEl = document.getElementById('prompt-error');
     input.value = '';
+    if(errorEl) errorEl.style.display = 'none';
+    
     const btn = document.getElementById('prompt-submit-btn');
     const newBtn = btn.cloneNode(true);
     btn.parentNode.replaceChild(newBtn, btn);
-    newBtn.onclick = function() { if(input.value) onSubmit(input.value); closeCustomPopup('custom-prompt'); };
+    newBtn.onclick = function() { 
+        if(!input.value.trim()) { window.showInlineError('prompt-error', 'Please enter a value.'); return; }
+        onSubmit(input.value); 
+        closeCustomPopup('custom-prompt'); 
+    };
     document.getElementById('custom-prompt').setAttribute('aria-hidden', 'false');
 };
