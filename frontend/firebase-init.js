@@ -129,7 +129,7 @@ window.loginUser = function () {
 };
 
 // ================= AUTH STATE LISTENER =================
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, (user) => {
     const headerAuth = document.getElementById("headerAuthArea");
     const profileSection = document.getElementById("profileSection");
     const notLoggedInProfile = document.querySelector(".not-logged-in");
@@ -158,6 +158,17 @@ onAuthStateChanged(auth, async (user) => {
         if (ordersContent) ordersContent.style.display = 'block';
         if (loggedOutOrders) loggedOutOrders.style.display = 'none';
 
+        // --- Admin Check ---
+        const admins = ["devraj85271@gmail.com", "kansh8042@gmail.com"];
+        if (admins.includes(user.email)) {
+            if(adminSectionTitle) adminSectionTitle.style.display = "block";
+            if(adminNavList) adminNavList.style.display = "flex";
+            setupAdminRealtimeListeners(); // Start listening for red dots
+        } else {
+            if(adminSectionTitle) adminSectionTitle.style.display = "none";
+            if(adminNavList) adminNavList.style.display = "none";
+        }
+
         // --- Notification Badge Check on Load ---
         const updateCount = parseInt(localStorage.getItem(`zynex_order_update_count_${user.uid}`) || '0');
         const onOrdersPage = window.location.pathname.endsWith('/orders.html');
@@ -175,57 +186,41 @@ onAuthStateChanged(auth, async (user) => {
             badge.style.display = 'none';
         }
 
+        // --- Fetch Announcement ---
+        get(ref(database, 'system/announcement')).then((snap) => {
+            if (snap.exists() && snap.val() && announcementContainer) {
+                announcementContainer.innerHTML = `
+                    <div class="announcement-bar">
+                        <ion-icon name="megaphone-outline" style="font-size:24px"></ion-icon>
+                        <span>${sanitize(snap.val())}</span>
+                    </div>`;
+            }
+        });
+
+        // --- Load Admin Dashboard if on admin page ---
+        if (document.getElementById('admin-orders-body')) {
+            loadAdminDashboard(user);
+        }
+
         // --- Setup User Notifications ---
         setupUserNotifications(user);
 
         // --- Fetch data from DB and update UI ---
-        try {
-            const token = await user.getIdToken();
-            const headers = { 'Authorization': `Bearer ${token}` };
-
-            // Fetch all primary data in parallel
-            const [profileRes, ordersRes, announcementRes] = await Promise.all([
-                fetch(`${window.BACKEND_URL}/api/users/me`, { headers }),
-                fetch(`${window.BACKEND_URL}/api/orders`, { headers }),
-                fetch(`${window.BACKEND_URL}/api/system/announcement`)
-            ]);
-
-            if (!profileRes.ok || !ordersRes.ok) {
-                throw new Error(`Failed to fetch data: ${profileRes.statusText}, ${ordersRes.statusText}`);
-            }
-
-            const data = await profileRes.json(); // User profile data
-            const orderList = await ordersRes.json(); // Array of orders
-            const announcementData = await announcementRes.json();
-
-            // --- Admin Check & UI ---
-            if (data.isAdmin) {
-                if(adminSectionTitle) adminSectionTitle.style.display = "block";
-                if(adminNavList) adminNavList.style.display = "flex";
-                // Load admin dashboard if on the admin page
-                if (document.getElementById('admin-orders-body')) {
-                    loadAdminDashboard(user);
-                }
-            } else {
-                if(adminSectionTitle) adminSectionTitle.style.display = "none";
-                if(adminNavList) adminNavList.style.display = "none";
-            }
-
-            // --- Render Announcement ---
-            if (announcementData.message && announcementContainer) {
-                announcementContainer.innerHTML = `<div class="announcement-bar"><ion-icon name="megaphone-outline"></ion-icon><span>${sanitize(announcementData.message)}</span></div>`;
-            }
-
+        const userRef = ref(database, "users/" + user.uid);
+        get(userRef).then((snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                const orders = data.orders || {};
+                window.userOrders = orders; // Store orders for popup access
+                const totalOrders = Object.keys(orders).length;
                 // == Update Header with DB username ==
                 if (headerAuth && data.username) {
                     const span = headerAuth.querySelector('span');
                     if(span) span.innerText = sanitize(data.username);
                 }
                 
-                window.userOrders = orderList; // Store orders for popup access
-                const totalOrders = orderList.length;
                 let totalSpent = 0;
-                orderList.forEach(order => {
+                Object.values(orders).forEach(order => {
                     if (order.status !== 'cancelled') {
                         totalSpent += (parseFloat(order.totalPrice) || 0);
                     }
@@ -278,6 +273,8 @@ onAuthStateChanged(auth, async (user) => {
                 const fullOrdersTable = document.getElementById('full-orders-table');
 
                 if (ordersTableBody) {
+                    const orderList = Object.values(orders).sort((a, b) => b.timestamp - a.timestamp);
+                    
                     if (orderList.length === 0) {
                         if (fullOrdersTable) fullOrdersTable.style.display = 'none';
                         if (noOrdersMsg) noOrdersMsg.style.display = 'block';
@@ -319,7 +316,7 @@ onAuthStateChanged(auth, async (user) => {
                 // == Update Dashboard Recent Orders ==
                 const recentOrdersBody = document.getElementById('recent-orders-body');
                 if (recentOrdersBody) {
-                    const recentOrderList = orderList.slice(0, 5);
+                    const recentOrderList = Object.values(orders).sort((a, b) => b.timestamp - a.timestamp).slice(0, 5);
                     if (orderList.length > 0) {
                         recentOrdersBody.innerHTML = '';
                         recentOrderList.forEach(order => {
@@ -342,11 +339,8 @@ onAuthStateChanged(auth, async (user) => {
                         });
                     }
                 }
-        } catch (error) {
-            console.error("Failed to load user data:", error);
-            showAlert("Could not load your profile data. Please try logging in again.", "Data Error");
-            logoutUser();
-        }
+            }
+        });
     } else {
         // --- Logged-out UI State ---
         if (headerAuth) {
@@ -387,21 +381,14 @@ window.logoutUser = function () {
 
 // Edit Username
 window.editUsername = function () {
-    showPrompt("Enter your new username:", async (newName) => {
+    showPrompt("Enter your new username:", (newName) => {
         const user = auth.currentUser;
         if (user) {
-            try {
-                const token = await user.getIdToken();
-                await fetch(`${window.BACKEND_URL}/api/users/me`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ username: newName })
-                });
-                showAlert("Username updated!", "Success");
-                location.reload();
-            } catch (err) {
-                showAlert(err.message, "Error");
-            }
+            updateProfile(user, { displayName: newName }).then(() => {
+                // Also update in Database to ensure consistency
+                update(ref(database, "users/" + user.uid), { username: newName })
+                    .then(() => location.reload());
+            }).catch(err => showAlert(err.message, "Error"));
         }
     });
 };
@@ -440,23 +427,13 @@ window.uploadProfileImage = async function (file) {
 
             const user = auth.currentUser;
             if (user) {
-                const token = await user.getIdToken();
-                await fetch(`${window.BACKEND_URL}/api/users/me`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ photoURL: data.secure_url })
-                });
+                // Update both Firebase Auth profile and Realtime Database
+                await updateProfile(user, { photoURL: data.secure_url });
+                await set(ref(database, "users/" + user.uid + "/photoURL"), data.secure_url);
             }
 
             showAlert("Profile picture updated!", "Success");
-            } else {
-            // Provide a more specific error from Cloudinary if available
-            const errorMessage = data.error ? data.error.message : "Upload failed. Check console for details.";
-            throw new Error(errorMessage);
-        }
+        } else throw "Upload failed";
 
     } catch (err) {
         console.error(err);
@@ -540,19 +517,12 @@ window.toggleCompact = function(isCompact) {
     localStorage.setItem('zynex_compact_view', isCompact);
 };
 
-window.saveSetting = async function(key, value) {
+window.saveSetting = function(key, value) {
     localStorage.setItem('zynex_setting_' + key, value);
     
     const user = auth.currentUser;
     if(user) {
-        try {
-            const token = await user.getIdToken();
-            await fetch(`${window.BACKEND_URL}/api/users/me`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ settings: { [key]: value } })
-            });
-        } catch (err) { console.error("Failed to save setting:", err); }
+        update(ref(database, `users/${user.uid}/settings`), { [key]: value });
     }
 };
 
@@ -608,7 +578,8 @@ window.submitOrderToDB = async function(orderData, onSuccess, onError) {
 // ================= ORDER DETAILS POPUP =================
 window.openOrderDetails = function(orderId) {
     const orders = window.userOrders || {};
-    const order = orders.find(o => o.id === orderId);
+    // Find order by ID (checking both key and stored id property)
+    const order = Object.values(orders).find(o => o.id === orderId);
     
     if (!order) return;
 
@@ -730,8 +701,13 @@ window.openOrderDetails = function(orderId) {
 window.showCancellationReason = function(orderId) {
     // Try to find in userOrders (User view)
     let order = null;
-    if (window.userOrders) order = window.userOrders.find(o => o.id === orderId);
-    if (!order && window.allAdminOrders) order = window.allAdminOrders.find(o => o.id === orderId);
+    if (window.userOrders) {
+        order = Object.values(window.userOrders).find(o => o.id === orderId);
+    }
+    // Try to find in allAdminOrders (Admin view)
+    if (!order && window.allAdminOrders) {
+        order = window.allAdminOrders.find(o => o.id === orderId);
+    }
     
     if (order && order.cancelledReason) {
         showAlert(order.cancelledReason, "Cancellation Reason");
@@ -751,54 +727,104 @@ window.copyToClipboard = function(text, btn) {
 };
 
 // ================= ADMIN DASHBOARD LOGIC =================
-window.loadAdminDashboard = async function(user) {
+window.loadAdminDashboard = function(user) {
     console.log("Loading Admin Dashboard for:", user.email);
-    try {
-        // The admin check is now done on the backend via middleware
-        const token = await user.getIdToken();
-        const headers = { 'Authorization': `Bearer ${token}` };
+    const admins = ["devraj85271@gmail.com", "kansh8042@gmail.com"];
 
-        // 1. Fetch Orders
-        const ordersRes = await fetch(`${window.BACKEND_URL}/api/admin/orders`, { headers });
-        const ordersData = await ordersRes.json();
-        window.allAdminOrders = ordersData;
-        renderAdminTable(ordersData);
-
-        // 2. Fetch Stats (Calculated on Backend)
-        const statsRes = await fetch(`${window.BACKEND_URL}/api/admin/stats`, { headers });
-        const statsData = await statsRes.json();
-        renderAdminStats(statsData);
-
-        // 3. Fetch Users
-        const usersRes = await fetch(`${window.BACKEND_URL}/api/admin/users`, { headers });
-        const usersData = await usersRes.json();
-        renderAdminUsers(usersData);
-        
-        // 4. Fetch Tickets
-        const ticketsRes = await fetch(`${window.BACKEND_URL}/api/admin/tickets`, { headers });
-        window.allAdminTickets = await ticketsRes.json();
-        renderAdminTicketsTable(window.allAdminTickets);
-
-    } catch (error) {
-        console.error("Admin API Error:", error);
-        showAlert("Failed to load admin data: " + error.message, "Error");
-        document.querySelector('.content').innerHTML = `<h2 style='text-align:center; margin-top:50px; color:#ff4d4f'>Access Denied or Server Error</h2><p style='text-align:center'>${error.message}</p>`;
+    if (!user || !admins.includes(user.email)) {
+        document.querySelector('.content').innerHTML = "<h2 style='text-align:center; margin-top:50px; color:#ff4d4f'>Access Denied</h2><p style='text-align:center'>You do not have permission to view this page.</p>";
+        return;
     }
+
+    if (window.adminDashboardUnsub) window.adminDashboardUnsub();
+
+    // Use onValue for real-time updates in Admin Dashboard
+    window.adminDashboardUnsub = onValue(ref(database, 'users'), (snapshot) => {
+        if (snapshot.exists()) {
+            const users = snapshot.val();
+            let allOrders = [];
+
+            // Flatten orders from all users
+            Object.keys(users).forEach(userId => {
+                const userData = users[userId];
+                if (userData.orders) {
+                    Object.values(userData.orders).forEach(order => {
+                        allOrders.push({
+                            ...order,
+                            userId: userId,
+                            username: userData.username || userData.email
+                        });
+                    });
+                }
+            });
+
+            // Sort by timestamp desc (newest first)
+            allOrders.sort((a, b) => b.timestamp - a.timestamp);
+            window.allAdminOrders = allOrders; // Store for filtering
+            renderAdminStats(allOrders);
+            renderAdminTable(allOrders);
+            renderAdminUsers(users); // New: Render Users Tab
+        } else {
+        }
+    }, (error) => {
+        console.error("Admin load error:", error);
+        const tbody = document.getElementById('admin-orders-body');
+        if(tbody) tbody.innerHTML = `<tr><td colspan='7' style='text-align:center; padding:20px; color:red'>Error loading data: ${error.message}<br><small>Check Database Rules if "Permission denied"</small></td></tr>`;
+    });
 
     // Load current announcement for settings tab
     get(ref(database, 'system/announcement')).then(snap => {
         const input = document.getElementById('admin-announcement-input');
         if(input && snap.exists()) input.value = snap.val();
     });
+
+    // Load tickets (already using onValue inside loadAdminTickets if we switch it)
+    loadAdminTickets();
 };
 
-window.renderAdminStats = function(stats) {
-    // Stats are now passed directly from backend
-    const totalRevenue = stats.totalRevenue || 0;
-    const profit = stats.totalProfit || 0;
-    const totalOrders = stats.totalOrders || 0;
-    const pendingCount = stats.pendingCount || 0;
-    const openTicketsCount = stats.openTicketsCount || 0;
+window.renderAdminStats = function(orders) {
+    let totalRevenue = 0; // All non-cancelled orders
+    let completedRevenue = 0; // Only completed orders
+    let completedCost = 0; // Only completed orders
+    let pendingCount = 0;
+
+    // Cost prices provided by user
+    const costPrices = {
+        'Instagram': {
+            'Followers': 0.13,
+            'Likes': 0.02,
+            'Views': 0.004,
+            'Comments': 0.2,
+            'Reel Repost': 0.07,
+            'Reel Share': 0.003,
+            'Story Views': 0.02
+        },
+        'YouTube': {
+            'Subscribers': 2.8,
+            'Likes': 0.06,
+            'Views': 0.33,
+            'Comment Likes': 0.0165
+        }
+    };
+
+    orders.forEach(o => {
+        if (o.status !== 'cancelled') {
+            totalRevenue += (parseFloat(o.totalPrice) || 0);
+        }
+        if (o.status === 'completed') {
+            completedRevenue += (parseFloat(o.totalPrice) || 0);
+            // Calculate cost for completed orders
+            if (costPrices[o.service] && costPrices[o.service][o.option] && o.amount) {
+                const unitCost = costPrices[o.service][o.option];
+                completedCost += (parseInt(o.amount) * unitCost);
+            }
+        }
+        if (o.status === 'pending' || o.status === 'processing' || o.status === 'inprocess') {
+            pendingCount++;
+        }
+    });
+
+    const profit = completedRevenue - completedCost;
 
     window.currentAdminProfit = profit;
 
@@ -808,27 +834,11 @@ window.renderAdminStats = function(stats) {
     const profitEl = document.getElementById('admin-total-profit');
 
     if(revEl) revEl.innerText = "₹" + totalRevenue.toLocaleString('en-IN');
-    if(ordEl) ordEl.innerText = totalOrders;
+    if(ordEl) ordEl.innerText = orders.length;
     if(penEl) penEl.innerText = pendingCount;
     if(profitEl) {
         profitEl.innerText = "₹" + profit.toFixed(2);
         profitEl.style.color = profit >= 0 ? '#00c853' : '#ff4d4f';
-    }
-
-    // --- Update Tab & Sidebar Badges ---
-    const ordersBadge = document.getElementById('admin-orders-badge');
-    if (ordersBadge) {
-        ordersBadge.style.display = pendingCount > 0 ? 'inline-block' : 'none';
-    }
-    const ticketsBadge = document.getElementById('admin-tickets-badge');
-    if (ticketsBadge) {
-        ticketsBadge.style.display = openTicketsCount > 0 ? 'inline-block' : 'none';
-    }
-    const sidebarBadge = document.getElementById('admin-sidebar-badge');
-    const totalPending = pendingCount + openTicketsCount;
-    if (sidebarBadge) {
-        sidebarBadge.innerText = totalPending > 99 ? '99+' : totalPending;
-        sidebarBadge.style.display = totalPending > 0 ? 'inline-block' : 'none';
     }
 
     // --- Profit Change Display ---
@@ -927,10 +937,23 @@ function getStatusColor(status) {
 }
 
 // ================= ADMIN USERS TAB =================
-window.renderAdminUsers = function(usersList) {
+window.renderAdminUsers = function(usersObj) {
     const tbody = document.getElementById('admin-users-body');
     if (!tbody) return;
     tbody.innerHTML = '';
+
+    const usersList = Object.keys(usersObj).map(uid => {
+        const u = usersObj[uid];
+        let spent = 0;
+        let count = 0;
+        if(u.orders) {
+            Object.values(u.orders).forEach(o => {
+                if(o.status !== 'cancelled') spent += (parseFloat(o.totalPrice)||0);
+                count++;
+            });
+        }
+        return { uid, ...u, totalSpent: spent, totalOrders: count };
+    }).sort((a,b) => b.totalSpent - a.totalSpent); // Sort by highest spender
 
     window.allAdminUsers = usersList; // Store for filtering
 
@@ -946,25 +969,12 @@ window.renderAdminUsers = function(usersList) {
     });
 };
 
-window.updateOrderStatus = async function(userId, orderId, updates) {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    try {
-        const token = await user.getIdToken();
-        const response = await fetch(`${window.BACKEND_URL}/api/admin/orders/${userId}/${orderId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(updates)
-        });
-        
-        if (!response.ok) throw new Error("Failed to update order");
-    } catch (err) {
-        showAlert(err.message, "Error updating status");
-    }
+window.updateOrderStatus = function(userId, orderId, newStatus) {
+    set(ref(database, `users/${userId}/orders/${orderId}/status`), newStatus)
+        .then(() => {
+            // Optional: visual feedback
+        })
+        .catch(err => showAlert(err.message, "Error updating status"));
 };
 
 window.filterAdminOrders = function() {
@@ -1146,7 +1156,7 @@ window.toggleAdminEditMode = function() {
     }
 };
 
-window.saveAdminOrderDetails = async function() {
+window.saveAdminOrderDetails = function() {
     if (!currentAdminOrder) return;
     clearInlineErrors();
     const newLink = document.getElementById('edit-order-link').value;
@@ -1155,12 +1165,10 @@ window.saveAdminOrderDetails = async function() {
     if(!newLink) { showInlineError('error-edit-link', 'Link is required'); return; }
     if(!newUtr) { showInlineError('error-edit-utr', 'UTR is required'); return; }
 
-    try {
-        await updateOrderStatus(currentAdminOrder.userId, currentAdminOrder.id, {
-            link: newLink,
-            utr: newUtr
-        });
-
+    update(ref(database, `users/${currentAdminOrder.userId}/orders/${currentAdminOrder.id}`), {
+        link: newLink,
+        utr: newUtr
+    }).then(() => {
         currentAdminOrder.link = newLink;
         currentAdminOrder.utr = newUtr;
         // Refresh view
@@ -1168,25 +1176,18 @@ window.saveAdminOrderDetails = async function() {
         // Refresh table
         renderAdminTable(window.allAdminOrders);
         showAlert("Order details updated", "Success");
-    } catch(err) {
-        // Error handled in updateOrderStatus
-    }
+    }).catch(err => showAlert(err.message, "Error"));
 };
 
-window.deleteAdminOrder = async function() {
+window.deleteAdminOrder = function() {
     if (!currentAdminOrder) return;
-    showConfirm("Are you sure you want to permanently delete this order?", async () => {
-        try {
-            const user = auth.currentUser;
-            const token = await user.getIdToken();
-            await fetch(`${window.BACKEND_URL}/api/admin/orders/${currentAdminOrder.userId}/${currentAdminOrder.id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            closePopup('.admin-manage-popup');
-            loadAdminDashboard(auth.currentUser); // Reload all
-            showAlert("Order deleted permanently.", "Deleted");
-        } catch(err) { showAlert(err.message, "Error"); }
+    showConfirm("Are you sure you want to permanently delete this order?", () => {
+        remove(ref(database, `users/${currentAdminOrder.userId}/orders/${currentAdminOrder.id}`))
+            .then(() => {
+                closePopup('.admin-manage-popup');
+                loadAdminDashboard(auth.currentUser); // Reload all
+                showAlert("Order deleted permanently.", "Deleted");
+            }).catch(err => showAlert(err.message, "Error"));
     });
 };
 
@@ -1204,12 +1205,11 @@ window.saveAdminOrder = function() {
 
     // If user unchecked everything, it goes to pending.
     
-    updateOrderStatus(currentAdminOrder.userId, currentAdminOrder.id, { status: newStatus });
+    updateOrderStatus(currentAdminOrder.userId, currentAdminOrder.id, newStatus);
     closePopup('.admin-manage-popup');
     
     // Refresh table (update local data first to avoid full reload lag)
     currentAdminOrder.status = newStatus;
-    
     renderAdminTable(window.allAdminOrders);
     showAlert("Order updated to " + newStatus, "Success");
 };
@@ -1224,10 +1224,13 @@ window.confirmCancelOrder = function() {
     const note = document.getElementById('cancel-note').value.trim();
 
     // Update status to cancelled
-    const updates = { status: 'cancelled', cancelledStage: stage };
+    updateOrderStatus(currentAdminOrder.userId, currentAdminOrder.id, 'cancelled');
+    
+    // Save the stage where it failed and reason
+    const updates = { cancelledStage: stage };
     if(note) updates.cancelledReason = note;
     
-    updateOrderStatus(currentAdminOrder.userId, currentAdminOrder.id, updates);
+    update(ref(database, `users/${currentAdminOrder.userId}/orders/${currentAdminOrder.id}`), updates);
 
     closePopup('.admin-manage-popup');
     currentAdminOrder.status = 'cancelled';
@@ -1251,6 +1254,14 @@ window.switchAdminTab = function(tabName) {
     if(tabName === 'users' && btns[2]) btns[2].classList.add('active');
     if(tabName === 'settings' && btns[3]) btns[3].classList.add('active');
 
+    // Clear notification for this tab (mark as seen)
+    if (window.adminCounts && window.adminCounts[tabName] !== undefined) {
+        localStorage.setItem(`zynex_admin_seen_${tabName}`, window.adminCounts[tabName]);
+        const badge = document.getElementById(`admin-${tabName}-badge`);
+        if(badge) badge.style.display = 'none';
+        // Refresh sidebar badge to remove count
+        updateAdminBadges(tabName, window.adminCounts[tabName]);
+    }
 };
 
 window.exportOrdersToCSV = function() {
@@ -1305,9 +1316,15 @@ window.sanitize = function(str) {
 
 // ================= TICKET SYSTEM =================
 
+// Global listeners to handle real-time updates
+let userTicketUnsub = null;
+let adminTicketUnsub = null;
+
 // --- User Side ---
 
 window.openSupportCenter = function() {
+    if(userTicketUnsub) { userTicketUnsub(); userTicketUnsub = null; }
+
     const content = document.querySelector('.popup-content.help');
     if(!content) return;
     
@@ -1330,6 +1347,8 @@ window.openSupportCenter = function() {
 };
 
 window.showCreateTicket = function(orderId = '') {
+    if(userTicketUnsub) { userTicketUnsub(); userTicketUnsub = null; }
+
     // Close order details if open
     closePopup('.order-details-popup');
     openPopup('.help-popup');
@@ -1350,32 +1369,41 @@ window.showCreateTicket = function(orderId = '') {
     `;
 };
 
-window.submitTicket = async function(orderId) {
+window.submitTicket = function(orderId) {
     const user = auth.currentUser;
     if(!user) return showAlert("Please login first.");
 
     const subject = document.getElementById('ticket-subject').value.trim();
     const message = document.getElementById('ticket-message').value.trim();
 
-    if(!subject || !message) return showAlert("Please fill in all fields.");
+    if(!subject || !message) return showAlert("Please fill all fields.");
 
-    try {
-        const token = await user.getIdToken();
-        const response = await fetch(`${window.BACKEND_URL}/api/tickets`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ subject, message, orderId })
-        });
-        if (!response.ok) throw new Error('Failed to create ticket.');
+    // FIX: Use push() to generate a unique ID for every ticket
+    // This prevents overwriting previous tickets from the same user
+    const newTicketRef = push(ref(database, 'tickets'));
+    const ticketData = {
+        id: newTicketRef.key,
+        userId: user.uid,
+        userEmail: user.email,
+        username: user.displayName || 'User',
+        subject: subject,
+        status: 'open',
+        orderId: orderId || null,
+        timestamp: Date.now(),
+        replies: {
+            [Date.now()]: { sender: 'user', message: message, timestamp: Date.now() }
+        }
+    };
 
+    set(newTicketRef, ticketData).then(() => {
         showAlert("Ticket created successfully!", "Success");
         showUserTickets();
-    } catch (err) {
-        showAlert(err.message, "Error");
-    }
+    });
 };
 
-window.showUserTickets = async function() {
+window.showUserTickets = function() {
+    if(userTicketUnsub) { userTicketUnsub(); userTicketUnsub = null; }
+
     const user = auth.currentUser;
     if(!user) return;
 
@@ -1388,24 +1416,26 @@ window.showUserTickets = async function() {
         </div>
     `;
 
-    try {
-        const token = await user.getIdToken();
-        const response = await fetch(`${window.BACKEND_URL}/api/tickets`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!response.ok) throw new Error('Failed to load tickets.');
-        
-        const tickets = await response.json();
+    get(ref(database, 'tickets')).then(snap => {
         const list = document.getElementById('user-ticket-list');
         if(!list) return;
         list.innerHTML = '';
+
+        if(!snap.exists()) {
+            list.innerHTML = '<p style="text-align:center; color:#999">No tickets found.</p>';
+            return;
+        }
+
+        const tickets = [];
+        snap.forEach(child => {
+            const t = child.val();
+            if(t.userId === user.uid) tickets.push(t);
+        });
 
         if(tickets.length === 0) {
             list.innerHTML = '<p style="text-align:center; color:#999">No tickets found.</p>';
             return;
         }
-
-        tickets.sort((a,b) => b.timestamp - a.timestamp);
 
         tickets.forEach(t => {
             const statusColor = t.status === 'open' ? '#e3f2fd' : '#f5f5f5';
@@ -1422,35 +1452,34 @@ window.showUserTickets = async function() {
                 </div>
             `;
         });
-    } catch (err) {
-        showAlert(err.message, "Error");
-    }
+    });
 };
 
-window.viewUserTicket = async function(ticketId) {
+window.viewUserTicket = function(ticketId) {
     const content = document.querySelector('.popup-content.help');
-    content.innerHTML = `<p style="text-align:center; color:#999">Loading ticket...</p>`;
+    
+    // Stop listening to previous ticket if any
+    if(userTicketUnsub) userTicketUnsub();
 
-    try {
-        // For user tickets, we can just re-fetch the whole ticket on view. Real-time is overkill.
-        const t = await fetchTicketById(ticketId); // A new helper function
+    // Start real-time listener
+    userTicketUnsub = onValue(ref(database, `tickets/${ticketId}`), (snap) => {
+        if(!snap.exists()) return;
+        const t = snap.val();
+        
+        // Preserve input text if user is typing during an update
+        const existingInput = document.getElementById('user-reply-input');
+        const draftText = existingInput ? existingInput.value : '';
 
         let chatHtml = '';
         const replies = t.replies ? Object.values(t.replies).sort((a,b) => (a.timestamp||0) - (b.timestamp||0)) : [];
         
         replies.forEach(r => {
-            const isMe = r.sender === 'user';
-            const align = isMe 
-                ? 'align-self:flex-end; background:#5c6cff; color:white; border-bottom-right-radius:2px' 
-                : 'align-self:flex-start; background:#f1f1f1; color:#333; border-bottom-left-radius:2px';
-            
-            const time = r.timestamp ? new Date(r.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
-            const metaColor = isMe ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.4)';
+            const type = r.sender === 'admin' ? 'admin' : 'user';
             
             chatHtml += `
-                <div style="padding:8px 12px; border-radius:12px; max-width:85%; font-size:0.9rem; margin-bottom:8px; ${align}; min-width:60px">
-                    <div style="margin-bottom:2px">${sanitize(r.message)}</div>
-                    <div style="font-size:0.65rem; text-align:right; color:${metaColor}">${time}</div>
+                <div class="chat-msg ${type}">
+                    ${sanitize(r.message)}
+                    <span class="chat-meta">${new Date(r.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
                 </div>
             `;
         });
@@ -1467,7 +1496,7 @@ window.viewUserTicket = async function(ticketId) {
             ${t.status === 'open' ? `
             <div style="display:flex; gap:5px">
                 <div style="flex:1">
-                    <input type="text" id="user-reply-input" class="form-input" placeholder="Type a reply..." style="width:100%">
+                    <input type="text" id="user-reply-input" class="form-input" placeholder="Type a reply..." style="width:100%" value="${draftText}">
                     <small id="error-user-reply" class="error-text"></small>
                 </div>
                 <button class="cta" style="padding:0 15px; height:42px" onclick="replyToTicket('${t.id}', 'user')"><ion-icon name="send"></ion-icon></button>
@@ -1481,31 +1510,20 @@ window.viewUserTicket = async function(ticketId) {
         // Auto-scroll to bottom
         const chatBox = document.getElementById('user-chat-box');
         if(chatBox) chatBox.scrollTop = chatBox.scrollHeight;
-    } catch (err) {
-        showAlert(err.message, "Error");
-        showUserTickets(); // Go back to list
-    }
+
+        // Restore focus if typing
+        const input = document.getElementById('user-reply-input');
+        if(input && draftText) input.focus();
+    });
 };
 
-async function fetchTicketById(ticketId) {
-    const user = auth.currentUser;
-    if (!user) throw new Error("Not logged in");
-    const token = await user.getIdToken();
-    const response = await fetch(`${window.BACKEND_URL}/api/admin/tickets/${ticketId}`, { // Use admin route to get any ticket by ID
-        headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!response.ok) throw new Error("Could not fetch ticket details.");
-    return await response.json();
-}
-
-window.replyToTicket = async function(ticketId, sender) {
+window.replyToTicket = function(ticketId, sender) {
     clearInlineErrors();
     const inputId = sender === 'user' ? 'user-reply-input' : 'admin-ticket-reply';
     const errorId = sender === 'user' ? 'error-user-reply' : 'error-ticket-reply';
     const msg = document.getElementById(inputId).value.trim();
-    const user = auth.currentUser;
     
-    if(!msg || !user) {
+    if(!msg) {
         showInlineError(errorId, 'Message cannot be empty');
         return;
     }
@@ -1513,44 +1531,63 @@ window.replyToTicket = async function(ticketId, sender) {
     const timestamp = Date.now();
     const replyRef = push(ref(database, `tickets/${ticketId}/replies`));
     
-    try {
-        const token = await user.getIdToken();
-        const endpoint = sender === 'user' ? `/api/tickets/${ticketId}/replies` : `/api/admin/tickets/${ticketId}/replies`;
-        const response = await fetch(`${window.BACKEND_URL}${endpoint}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ message: msg })
-        });
-        if (!response.ok) throw new Error('Failed to send reply.');
+    const updates = {};
+    // Add the reply
+    updates[`tickets/${ticketId}/replies/${replyRef.key}`] = {
+        sender: sender,
+        message: msg,
+        timestamp: timestamp
+    };
+    // Update main ticket timestamp to bump it to the top (Live Chat behavior)
+    updates[`tickets/${ticketId}/timestamp`] = timestamp;
 
-        // Refresh view
-        if (sender === 'user') viewUserTicket(ticketId);
-        else openAdminTicketManage(ticketId);
-
-    } catch (err) {
-        showAlert(err.message, "Error");
-    }
+    update(ref(database), updates).then(() => {
+        document.getElementById(inputId).value = '';
+        // No manual refresh needed, onValue handles it
+    });
 };
 
-window.deleteUserTicket = async function(ticketId) {
-    showConfirm("Are you sure you want to delete this ticket?", async () => {
-        try {
-            const user = auth.currentUser;
-            const token = await user.getIdToken();
-            const response = await fetch(`${window.BACKEND_URL}/api/tickets/${ticketId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!response.ok) throw new Error('Failed to delete ticket.');
-            showAlert("Ticket deleted.", "Success");
-            showUserTickets();
-        } catch (err) {
-            showAlert(err.message, "Error");
-        }
+window.deleteUserTicket = function(ticketId) {
+    showConfirm("Are you sure you want to delete this ticket?", () => {
+        remove(ref(database, `tickets/${ticketId}`))
+            .then(() => {
+                showAlert("Ticket deleted.", "Success");
+                showUserTickets();
+            })
+            .catch(e => showAlert(e.message, "Error"));
     });
 };
 
 // --- Admin Side ---
+
+window.loadAdminTickets = function() {
+    if (window.adminTicketsUnsub) window.adminTicketsUnsub();
+
+    window.adminTicketsUnsub = onValue(ref(database, 'tickets'), (snap) => {
+        const tbody = document.getElementById('admin-tickets-body');
+        if(!tbody) return;
+        tbody.innerHTML = '';
+        
+        if(!snap.exists()) {
+            window.allAdminTickets = [];
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px">No tickets found.</td></tr>';
+            return;
+        }
+
+        const tickets = [];
+        snap.forEach(c => {
+            const val = c.val();
+            // Robustness: If ID is missing (from old bad data), use the key
+            if (val && typeof val === 'object') {
+                if (!val.id) val.id = c.key;
+                tickets.push(val);
+            }
+        });
+        tickets.sort((a,b) => (b.timestamp||0) - (a.timestamp||0));
+        window.allAdminTickets = tickets;
+        renderAdminTicketsTable(tickets);
+    });
+};
 
 window.renderAdminTicketsTable = function(tickets) {
     const tbody = document.getElementById('admin-tickets-body');
@@ -1585,77 +1622,160 @@ window.renderAdminTicketsTable = function(tickets) {
 
 let currentAdminTicketId = null;
 
-window.openAdminTicketManage = async function(ticketId) {
+window.openAdminTicketManage = function(ticketId) {
     currentAdminTicketId = ticketId;
-    try {
-        const t = await fetchTicketById(ticketId);
-        document.getElementById('admin-ticket-header').innerHTML = `
-            <strong>${sanitize(t.subject)}</strong> <span style="color:#888">by ${sanitize(t.username)}</span>
-            ${t.orderId ? `<br><small>Ref: Order #${t.orderId.slice(-6)}</small>` : ''}
-        `;
+    
+    if(adminTicketUnsub) adminTicketUnsub();
 
-        const chatContainer = document.getElementById('admin-ticket-chat');
-        chatContainer.innerHTML = '';
-        
-        const replies = t.replies ? Object.values(t.replies).sort((a,b) => (a.timestamp||0) - (b.timestamp||0)) : [];
-        replies.forEach(r => {
-            const type = r.sender === 'admin' ? 'admin' : 'user';
-            chatContainer.innerHTML += `
-                <div class="chat-msg ${type}">
-                    ${sanitize(r.message)}
-                    <span class="chat-meta">${new Date(r.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
-                </div>
-            `;
-        });
-        
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-        document.getElementById('admin-close-ticket-btn').innerText = t.status === 'open' ? 'Close Ticket' : 'Re-open Ticket';
-        openPopup('.admin-ticket-popup');
-    } catch (err) {
-        showAlert(err.message, "Error");
-    }
+    adminTicketUnsub = onValue(ref(database, `tickets/${ticketId}`), (snap) => {
+        if(!snap.exists()) return;
+        const t = snap.val();
+
+    document.getElementById('admin-ticket-header').innerHTML = `
+        <strong>${sanitize(t.subject)}</strong> <span style="color:#888">by ${sanitize(t.username)}</span>
+        ${t.orderId ? `<br><small>Ref: Order #${t.orderId.slice(-6)}</small>` : ''}
+    `;
+
+    const chatContainer = document.getElementById('admin-ticket-chat');
+    chatContainer.innerHTML = '';
+    
+    const replies = t.replies ? Object.values(t.replies).sort((a,b) => (a.timestamp||0) - (b.timestamp||0)) : [];
+    replies.forEach(r => {
+        const type = r.sender === 'admin' ? 'admin' : 'user';
+        chatContainer.innerHTML += `
+            <div class="chat-msg ${type}">
+                ${sanitize(r.message)}
+                <span class="chat-meta">${new Date(r.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+            </div>
+        `;
+    });
+    
+    // Scroll to bottom
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+
+    const closeBtn = document.getElementById('admin-close-ticket-btn');
+    closeBtn.innerText = t.status === 'open' ? 'Close Ticket' : 'Re-open Ticket';
+    
+    openPopup('.admin-ticket-popup');
+    });
 };
 
 window.sendAdminTicketReply = function() {
     if(currentAdminTicketId) replyToTicket(currentAdminTicketId, 'admin');
 };
 
-window.toggleTicketStatus = async function() {
+window.toggleTicketStatus = function() {
     if(!currentAdminTicketId) return;
     const t = window.allAdminTickets.find(x => x.id === currentAdminTicketId);
     const newStatus = t.status === 'open' ? 'closed' : 'open';
-    const user = auth.currentUser;
     
-    try {
-        const token = await user.getIdToken();
-        await fetch(`${window.BACKEND_URL}/api/admin/tickets/${currentAdminTicketId}/status`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ status: newStatus })
-        });
+    update(ref(database, `tickets/${currentAdminTicketId}`), { status: newStatus }).then(() => {
+        t.status = newStatus;
+        loadAdminTickets(); // Refresh table
         showAlert(`Ticket ${newStatus}.`, "Success");
-        loadAdminDashboard(user); // Reload all admin data
-        closePopup('.admin-ticket-popup');
-    } catch (err) { showAlert(err.message, "Error"); }
+    });
 };
 
-window.deleteAdminTicket = async function() {
+window.deleteAdminTicket = function() {
     if(!currentAdminTicketId) return;
-    showConfirm("Permanently delete this ticket?", async () => {
-        try {
-            const user = auth.currentUser;
-            const token = await user.getIdToken();
-            await fetch(`${window.BACKEND_URL}/api/admin/tickets/${currentAdminTicketId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            closePopup('.admin-ticket-popup');
-            showAlert("Ticket deleted.", "Deleted");
-            loadAdminDashboard(user); // Reload all admin data
-        } catch (err) {
-            showAlert(err.message, "Error");
-        }
+    showConfirm("Permanently delete this ticket?", () => {
+        remove(ref(database, `tickets/${currentAdminTicketId}`))
+            .then(() => {
+                closePopup('.admin-ticket-popup');
+                showAlert("Ticket deleted.", "Deleted");
+            })
+            .catch(e => showAlert(e.message, "Error"));
     });
+};
+
+window.setupAdminRealtimeListeners = function() {
+    if (window.adminBadgeUnsubTickets) window.adminBadgeUnsubTickets();
+    if (window.adminBadgeUnsubOrders) window.adminBadgeUnsubOrders();
+
+    // Request Browser Notification Permission for Admins
+    if ("Notification" in window && Notification.permission !== "granted") {
+        Notification.requestPermission();
+    }
+
+    // Listen to all tickets for Open status
+    window.adminBadgeUnsubTickets = onValue(ref(database, 'tickets'), (snap) => {
+        let openCount = 0;
+        snap.forEach(c => { if(c.val().status === 'open') openCount++; });
+        
+        updateAdminBadges('tickets', openCount);
+    });
+
+    let lastPendingCount = -1; // Track previous count to detect new orders
+
+    // Listen to all users for Pending orders
+    window.adminBadgeUnsubOrders = onValue(ref(database, 'users'), (snap) => {
+        let pendingCount = 0;
+        snap.forEach(userSnap => {
+            const orders = userSnap.val().orders;
+            if(orders) {
+                Object.values(orders).forEach(o => {
+                    if(o.status === 'pending') pendingCount++;
+                });
+            }
+        });
+
+        // If not first load (-1) and count increased, trigger notification
+        if (lastPendingCount !== -1 && pendingCount > lastPendingCount) {
+            // 1. Browser Notification
+            if (Notification.permission === "granted") {
+                new Notification("New Order Received!", {
+                    body: `You have ${pendingCount} pending orders waiting for verification.`,
+                    icon: "logo.png"
+                });
+            }
+            // 2. In-App Alert
+            showAlert("New Order Received!", "Admin Alert");
+        }
+        lastPendingCount = pendingCount;
+
+        updateAdminBadges('orders', pendingCount);
+    });
+};
+
+window.updateAdminBadges = function(type, count) {
+    const sidebarBadge = document.getElementById('admin-sidebar-badge');
+    const tabBadge = document.getElementById(`admin-${type}-badge`);
+    
+    // Update Tab Badge (Red Dot)
+    // Store global count
+    if (!window.adminCounts) window.adminCounts = { orders: 0, tickets: 0 };
+    window.adminCounts[type] = count;
+    
+    // Check if tab is currently active
+    const tabContent = document.getElementById(`admin-tab-${type}`);
+    const isTabActive = tabContent && tabContent.style.display !== 'none';
+
+    // Get last seen count
+    let lastSeen = parseInt(localStorage.getItem(`zynex_admin_seen_${type}`) || '0');
+
+    // If viewing tab, or if count decreased (items processed), update seen count
+    if (isTabActive || count < lastSeen) {
+        lastSeen = count;
+        localStorage.setItem(`zynex_admin_seen_${type}`, count);
+    }
+    
+    // Update Tab Badge (Red Dot) - Show only if new items exist
+    if(tabBadge) {
+        tabBadge.style.display = (count > lastSeen) ? 'inline-block' : 'none';
+    }
+
+    // Update Sidebar Badge (Total Unseen Count)
+    let totalUnseen = 0;
+    ['orders', 'tickets'].forEach(t => {
+        const c = window.adminCounts[t] || 0;
+        const s = parseInt(localStorage.getItem(`zynex_admin_seen_${t}`) || '0');
+        if (c > s) totalUnseen += (c - s);
+    });
+
+    if(sidebarBadge) {
+        sidebarBadge.innerText = totalUnseen > 99 ? '99+' : totalUnseen;
+        sidebarBadge.style.display = totalUnseen > 0 ? 'inline-block' : 'none';
+    }
 };
 
 window.filterAdminTickets = function() {

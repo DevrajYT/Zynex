@@ -189,20 +189,31 @@
     </div>
 
     <script>
-        // Service Configuration with dummy prices
-        let serviceConfig = {};
-
-        // Fetch configuration from backend on load
-        document.addEventListener('DOMContentLoaded', () => {
-            // Use the global BACKEND_URL if available, otherwise fallback
-            const apiUrl = (window.BACKEND_URL || "https://zynex-backend.onrender.com") + "/api/services";
-            fetch(apiUrl)
-                .then(res => res.json())
-                .then(data => {
-                    serviceConfig = data;
-                })
-                .catch(err => console.error("Failed to load services:", err));
-        });
+        const serviceConfig = {
+            instagram: {
+                title: "Instagram",
+                options: [
+                    { name: "Followers", price: 0.40, icon: "people-outline", min: 10, max: 10000 },
+                    { name: "Likes", price: 0.05, icon: "heart-outline", min: 10, max: 100000 },
+                    { name: "Views", price: 0.008, icon: "eye-outline", min: 100, max: 1000000 },
+                    { name: "Comments", price: 0.2, icon: "chatbubble-outline", min: 50, max: 50000 },
+                    { name: "Reel Repost", price: 0.2, icon: "repeat-outline", min: 10, max: 1000 },
+                    { name: "Reel Share", price: 0.02, icon: "share-social-outline", min: 100, max: 100000 },
+                    { name: "Story Views", price: 0.04, icon: "aperture-outline", min: 10, max: 10000 }
+                ]
+            },
+            youtube: {
+                title: "YouTube",
+                options: [
+                    { name: "Subscribers", price: 4.40, icon: "person-add-outline", min: 50, max: 10000 },
+                    { name: "Likes", price: 0.3, icon: "thumbs-up-outline", min: 10, max: 10000 },
+                    { name: "Views", price: 0.40, icon: "play-circle-outline", min: 100, max: 100000 },
+                    { name: "Comment Likes", price: 0.030, icon: "heart-circle-outline", min: 100, max: 100000 },
+                    { name: "Comments (Coming Soon)", price: 3.00, icon: "chatbubbles-outline", disabled: true },
+                    { name: "Watch Time (Coming Soon)", price: 4.00, icon: "time-outline", disabled: true },
+                ]
+            }
+        };
 
         let currentServiceData = null;
         let selectedOptionData = null;
