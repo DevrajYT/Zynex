@@ -1806,20 +1806,21 @@ window.setupUserNotifications = function(user) {
 
         const order = snapshot.val();
 
-        // Increment update count
-        let count = parseInt(localStorage.getItem(`zynex_order_update_count_${user.uid}`) || '0');
-        count++;
-        localStorage.setItem(`zynex_order_update_count_${user.uid}`, count);
+        const onOrdersPage = window.location.pathname.endsWith('/orders.html');
 
-        // Show red number on nav item, unless user is already on the orders page
-        if (!window.location.pathname.endsWith('/orders.html')) {
+        if (!onOrdersPage) {
+            // Increment update count only if user is NOT on the orders page
+            let count = parseInt(localStorage.getItem(`zynex_order_update_count_${user.uid}`) || '0');
+            count++;
+            localStorage.setItem(`zynex_order_update_count_${user.uid}`, count);
+
+            // Show red number on nav item
             const badge = document.getElementById('orders-nav-badge');
             if (badge) {
                 badge.style.display = 'inline-block';
                 badge.innerText = count > 99 ? '99+' : count;
             }
         }
-
         // If the page is hidden (user is on another tab/window), send a browser notification
         if (document.hidden) {
             // Check both push notification master switch and permission
@@ -1836,10 +1837,12 @@ window.setupUserNotifications = function(user) {
                 showAlert(`Order #${order.id.slice(-6)} for ${order.service} is now Completed!`, "Order Update");
                 // Occasional Review Prompt
                 setTimeout(() => {
-                    const count = parseInt(localStorage.getItem('zynex_completed_count') || '0') + 1;
-                    localStorage.setItem('zynex_completed_count', count);
+                    const countKey = `zynex_completed_count_${user.uid}`;
+                    const count = parseInt(localStorage.getItem(countKey) || '0') + 1;
+                    localStorage.setItem(countKey, count);
                     
-                    const lastReview = parseInt(localStorage.getItem('zynex_last_review_ts') || '0');
+                    const reviewTsKey = `zynex_last_review_ts_${user.uid}`;
+                    const lastReview = parseInt(localStorage.getItem(reviewTsKey) || '0');
                     const now = Date.now();
                     // Ask on 1st order, then every 3rd order, if not reviewed in last 3 days
                     if ((count === 1 || count % 3 === 0) && (now - lastReview > 259200000)) {
@@ -1922,7 +1925,8 @@ window.submitReview = function() {
 
     push(ref(database, 'reviews'), reviewData)
         .then(() => {
-            localStorage.setItem('zynex_last_review_ts', Date.now());
+            const reviewTsKey = `zynex_last_review_ts_${user.uid}`;
+            localStorage.setItem(reviewTsKey, Date.now());
             showAlert("Thank you for your feedback!", "Review Submitted");
             closePopup('.review-popup');
             loadPublicReviews(); // Refresh list
