@@ -1213,15 +1213,6 @@ body.dark-mode .admin-tab-btn.active, body.dark-mode .admin-tab-btn:hover { colo
 .ticket-status-closed { background: #f5f5f5; color: #666; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
 
 /* Notification Badges */
-.nav-badge {
-    background: #ff4d4f;
-    color: white;
-    font-size: 0.7rem;
-    padding: 2px 6px;
-    border-radius: 10px;
-    margin-left: auto;
-    display: none; /* Hidden by default */
-}
 .tab-badge {
     background: #ff4d4f;
     width: 8px;

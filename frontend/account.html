@@ -22,7 +22,7 @@
 		<ul class="nav-list">
 			<li><a href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
 			<li><a href="services.html"><ion-icon name="cube-outline"></ion-icon>Services</a></li>
-			<li><a href="orders.html"><ion-icon name="notifications-outline"></ion-icon>Orders <span id="orders-nav-badge" class="nav-badge"></span></a></li>
+			<li><a href="orders.html"><ion-icon name="notifications-outline"></ion-icon>Orders</a></li>
 		</ul>
 
 		<div class="section-title">AUTH</div>
@@ -165,10 +165,6 @@
 					<div class="setting-item">
 						<span>Push Notifications</span>
 						<input type="checkbox" id="pushNotifs" onchange="saveSetting('pushNotifs', this.checked)" checked>
-					</div>
-					<div class="setting-item">
-						<span>Order Status Updates</span>
-						<input type="checkbox" id="orderStatusNotifs" onchange="toggleOrderStatusNotifs(this.checked)" checked>
 					</div>
 					<div class="setting-item">
 						<span>Promotional Offers</span>
@@ -331,7 +327,7 @@
 			if(localStorage.getItem('zynex_dark_mode') === 'true') document.getElementById('darkModeToggle').checked = true;
 			if(localStorage.getItem('zynex_compact_view') === 'true') document.getElementById('compactModeToggle').checked = true;
 			
-			['emailUpdates', 'pushNotifs', 'orderStatusNotifs', 'promoOffers'].forEach(id => {
+			['emailUpdates', 'pushNotifs', 'promoOffers'].forEach(id => {
 				const val = localStorage.getItem('zynex_setting_' + id);
 				if(val !== null) document.getElementById(id).checked = (val === 'true');
 			});

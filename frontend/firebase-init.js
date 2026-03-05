@@ -168,23 +168,6 @@ onAuthStateChanged(auth, (user) => {
             if(adminNavList) adminNavList.style.display = "none";
         }
 
-        // --- Notification Badge Check on Load ---
-        const updateCount = parseInt(localStorage.getItem(`zynex_order_update_count_${user.uid}`) || '0');
-        const onOrdersPage = window.location.href.includes('orders.html');
-        const badge = document.getElementById('orders-nav-badge');
-
-        if (onOrdersPage) {
-            // On orders page, clear the flag and hide the badge
-            localStorage.setItem(`zynex_order_update_count_${user.uid}`, '0');
-            if (badge) badge.style.display = 'none';
-        } else if (updateCount > 0 && badge) {
-            // Not on orders page, but there is a new update
-            badge.style.display = 'inline-block';
-            badge.innerText = updateCount > 99 ? '99+' : updateCount;
-        } else if (badge) {
-            badge.style.display = 'none';
-        }
-
         // --- Fetch Announcement ---
         get(ref(database, 'system/announcement')).then((snap) => {
             if (snap.exists() && snap.val() && announcementContainer) {
@@ -415,27 +398,6 @@ window.editUsername = function () {
     });
 };
 
-// ================= SYNC BADGE ACROSS TABS =================
-window.addEventListener('storage', (e) => {
-    const user = auth.currentUser;
-    if (!user) return;
-    
-    if (e.key === `zynex_order_update_count_${user.uid}`) {
-        const count = parseInt(e.newValue || '0');
-        const badge = document.getElementById('orders-nav-badge');
-        const onOrdersPage = window.location.href.includes('orders.html');
-
-        if (badge) {
-            if (count > 0 && !onOrdersPage) {
-                badge.style.display = 'inline-block';
-                badge.innerText = count > 99 ? '99+' : count;
-            } else {
-                badge.style.display = 'none';
-            }
-        }
-    }
-});
-
 
 // Change Profile Image (Preview Only)
 document.getElementById("imageUpload")?.addEventListener("change", function (evt) {
@@ -566,13 +528,6 @@ window.saveSetting = function(key, value) {
     const user = auth.currentUser;
     if(user) {
         update(ref(database, `users/${user.uid}/settings`), { [key]: value });
-    }
-};
-
-window.toggleOrderStatusNotifs = function(isChecked) {
-    saveSetting('orderStatusNotifs', isChecked);
-    if (isChecked && "Notification" in window && Notification.permission !== "granted") {
-        Notification.requestPermission();
     }
 };
 
@@ -1841,62 +1796,6 @@ window.filterAdminTickets = function() {
 // ================= NOTIFICATIONS SYSTEM =================
 
 window.setupUserNotifications = function(user) {
-    // 1. Order Status Updates
-    const ordersRef = ref(database, `users/${user.uid}/orders`);
-    onChildChanged(ordersRef, (snapshot) => {
-        // Check setting (default to true if null)
-        const settingEnabled = localStorage.getItem('zynex_setting_orderStatusNotifs') !== 'false';
-        if (!settingEnabled) return;
-
-        const order = snapshot.val();
-
-        const onOrdersPage = window.location.href.includes('orders.html');
-
-        if (!onOrdersPage) {
-            // Increment update count only if user is NOT on the orders page
-            let count = parseInt(localStorage.getItem(`zynex_order_update_count_${user.uid}`) || '0');
-            count++;
-            localStorage.setItem(`zynex_order_update_count_${user.uid}`, count);
-
-            // Show red number on nav item
-            const badge = document.getElementById('orders-nav-badge');
-            if (badge) {
-                badge.style.display = 'inline-block';
-                badge.innerText = count > 99 ? '99+' : count;
-            }
-        }
-        // If the page is hidden (user is on another tab/window), send a browser notification
-        if (document.hidden) {
-            // Check both push notification master switch and permission
-            if ("Notification" in window && Notification.permission === "granted" && localStorage.getItem('zynex_setting_pushNotifs') !== 'false') {
-                let title = "Zynex Order Update";
-                let body = `There's an update on your order #${order.id.slice(-6)}.`;
-                if (order.status === 'completed') body = `Your order for ${order.service} is now Completed!`;
-                if (order.status === 'cancelled') body = `Your order #${order.id.slice(-6)} was Cancelled.`;
-                
-                new Notification(title, { body: body, icon: "logo.png" });
-            }
-        } else { // Otherwise, show an in-app alert
-            if (order.status === 'completed') {
-                showAlert(`Order #${order.id.slice(-6)} for ${order.service} is now Completed!`, "Order Update");
-                
-                // Real-time Review Prompt
-                const promptedOrdersKey = `zynex_review_prompted_orders_${user.uid}`;
-                const promptedOrders = JSON.parse(localStorage.getItem(promptedOrdersKey) || '[]');
-
-                if (!promptedOrders.includes(order.id)) {
-                    promptedOrders.push(order.id);
-                    localStorage.setItem(promptedOrdersKey, JSON.stringify(promptedOrders));
-
-                    setTimeout(() => {
-                        if(window.openReviewPopup) window.openReviewPopup();
-                    }, 3000);
-                }
-            }
-            if (order.status === 'cancelled') showAlert(`Order #${order.id.slice(-6)} was Cancelled. Check details for reason.`, "Order Update");
-        }
-    });
-
     // 2. Ticket Updates
     const ticketsRef = ref(database, 'tickets');
     onChildChanged(ticketsRef, (snapshot) => {
