@@ -1835,20 +1835,6 @@ window.setupUserNotifications = function(user) {
         } else { // Otherwise, show an in-app alert
             if (order.status === 'completed') {
                 showAlert(`Order #${order.id.slice(-6)} for ${order.service} is now Completed!`, "Order Update");
-                // Occasional Review Prompt
-                setTimeout(() => {
-                    const countKey = `zynex_completed_count_${user.uid}`;
-                    const count = parseInt(localStorage.getItem(countKey) || '0') + 1;
-                    localStorage.setItem(countKey, count);
-                    
-                    const reviewTsKey = `zynex_last_review_ts_${user.uid}`;
-                    const lastReview = parseInt(localStorage.getItem(reviewTsKey) || '0');
-                    const now = Date.now();
-                    // Ask on 1st order, then every 3rd order, if not reviewed in last 3 days
-                    if ((count === 1 || count % 3 === 0) && (now - lastReview > 259200000)) {
-                        if(window.openReviewPopup) window.openReviewPopup();
-                    }
-                }, 3000);
             }
             if (order.status === 'cancelled') showAlert(`Order #${order.id.slice(-6)} was Cancelled. Check details for reason.`, "Order Update");
         }
@@ -1925,8 +1911,6 @@ window.submitReview = function() {
 
     push(ref(database, 'reviews'), reviewData)
         .then(() => {
-            const reviewTsKey = `zynex_last_review_ts_${user.uid}`;
-            localStorage.setItem(reviewTsKey, Date.now());
             showAlert("Thank you for your feedback!", "Review Submitted");
             closePopup('.review-popup');
             loadPublicReviews(); // Refresh list
