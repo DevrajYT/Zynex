@@ -211,6 +211,29 @@ onAuthStateChanged(auth, (user) => {
                 const data = snapshot.val();
                 const orders = data.orders || {};
                 window.userOrders = orders; // Store orders for popup access
+
+                // == New Logic: Review prompt on Orders Page Load ==
+                if (onOrdersPage) {
+                    const promptedOrdersKey = `zynex_review_prompted_orders_${user.uid}`;
+                    const promptedOrders = JSON.parse(localStorage.getItem(promptedOrdersKey) || '[]');
+
+                    // Find the most recent completed order that has NOT been prompted for review
+                    const unpromptedOrder = Object.values(orders)
+                        .filter(o => o.status === 'completed' && !promptedOrders.includes(o.id))
+                        .sort((a, b) => b.timestamp - a.timestamp)[0]; // Get the newest one
+
+                    if (unpromptedOrder) {
+                        // Add this order to the prompted list so we don't ask again
+                        promptedOrders.push(unpromptedOrder.id);
+                        localStorage.setItem(promptedOrdersKey, JSON.stringify(promptedOrders));
+
+                        // Open the popup after a short delay for a better user experience
+                        setTimeout(() => {
+                            if (window.openReviewPopup) window.openReviewPopup();
+                        }, 2000);
+                    }
+                }
+
                 const totalOrders = Object.keys(orders).length;
                 // == Update Header with DB username ==
                 if (headerAuth && data.username) {
