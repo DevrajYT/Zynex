@@ -14,8 +14,7 @@ import {
     EmailAuthProvider,
     updatePassword
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getDatabase, ref, set, get, push, remove, update, onValue, onChildChanged }
-    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, set, get, push, remove, update, onValue, onChildChanged, query, limitToLast } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 
 
@@ -537,6 +536,8 @@ window.toggleOrderStatusNotifs = function(isChecked) {
 document.addEventListener('DOMContentLoaded', () => {
     if(localStorage.getItem('zynex_dark_mode') === 'true') document.body.classList.add('dark-mode');
     if(localStorage.getItem('zynex_compact_view') === 'true') document.body.classList.add('compact-view');
+
+    loadPublicReviews();
 
     // Check for login query param to auto-open login popup
     const urlParams = new URLSearchParams(window.location.search);
@@ -1831,7 +1832,21 @@ window.setupUserNotifications = function(user) {
                 new Notification(title, { body: body, icon: "logo.png" });
             }
         } else { // Otherwise, show an in-app alert
-            if (order.status === 'completed') showAlert(`Order #${order.id.slice(-6)} for ${order.service} is now Completed!`, "Order Update");
+            if (order.status === 'completed') {
+                showAlert(`Order #${order.id.slice(-6)} for ${order.service} is now Completed!`, "Order Update");
+                // Occasional Review Prompt
+                setTimeout(() => {
+                    const count = parseInt(localStorage.getItem('zynex_completed_count') || '0') + 1;
+                    localStorage.setItem('zynex_completed_count', count);
+                    
+                    const lastReview = parseInt(localStorage.getItem('zynex_last_review_ts') || '0');
+                    const now = Date.now();
+                    // Ask on 1st order, then every 3rd order, if not reviewed in last 3 days
+                    if ((count === 1 || count % 3 === 0) && (now - lastReview > 259200000)) {
+                        if(window.openReviewPopup) window.openReviewPopup();
+                    }
+                }, 3000);
+            }
             if (order.status === 'cancelled') showAlert(`Order #${order.id.slice(-6)} was Cancelled. Check details for reason.`, "Order Update");
         }
     });
@@ -1850,6 +1865,109 @@ window.setupUserNotifications = function(user) {
                 // To be precise we'd check replies count, but this is a decent proxy for "activity"
                 showAlert(`New update on Ticket #${ticket.id.slice(-4)}`, "Support");
             }
+        }
+    });
+};
+
+// ================= REVIEW SYSTEM =================
+
+window.openReviewPopup = function() {
+    const user = auth.currentUser;
+    if (!user) {
+        showAlert("Please login to write a review.", "Login Required");
+        return;
+    }
+    // Reset form
+    document.getElementById('review-rating-value').value = '0';
+    document.getElementById('review-text').value = '';
+    document.querySelectorAll('.star-rating-input ion-icon').forEach(i => {
+        i.classList.remove('active');
+        i.setAttribute('name', 'star-outline');
+    });
+    openPopup('.review-popup');
+};
+
+window.setRating = function(rating) {
+    document.getElementById('review-rating-value').value = rating;
+    const stars = document.querySelectorAll('.star-rating-input ion-icon');
+    stars.forEach(star => {
+        const val = parseInt(star.getAttribute('data-value'));
+        if (val <= rating) {
+            star.classList.add('active');
+            star.setAttribute('name', 'star');
+        } else {
+            star.classList.remove('active');
+            star.setAttribute('name', 'star-outline');
+        }
+    });
+};
+
+window.submitReview = function() {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const rating = document.getElementById('review-rating-value').value;
+    const text = document.getElementById('review-text').value.trim();
+
+    if (rating == '0') { showAlert("Please select a star rating."); return; }
+    if (!text) { showAlert("Please write a short review."); return; }
+
+    const reviewData = {
+        userId: user.uid,
+        username: user.displayName || 'User',
+        rating: parseInt(rating),
+        text: text,
+        timestamp: Date.now()
+    };
+
+    push(ref(database, 'reviews'), reviewData)
+        .then(() => {
+            localStorage.setItem('zynex_last_review_ts', Date.now());
+            showAlert("Thank you for your feedback!", "Review Submitted");
+            closePopup('.review-popup');
+            loadPublicReviews(); // Refresh list
+        })
+        .catch(err => showAlert(err.message, "Error"));
+};
+
+window.loadPublicReviews = function() {
+    const container = document.getElementById('public-reviews-grid');
+    if (!container) return;
+
+    // Get last 6 reviews
+    const reviewsQuery = query(ref(database, 'reviews'), limitToLast(6));
+    
+    get(reviewsQuery).then((snapshot) => {
+        if (snapshot.exists()) {
+            container.innerHTML = '';
+            const reviews = [];
+            snapshot.forEach(child => reviews.push(child.val()));
+            
+            // Show newest first
+            reviews.reverse().forEach(r => {
+                const starsHtml = Array(5).fill(0).map((_, i) => 
+                    `<ion-icon name="${i < r.rating ? 'star' : 'star-outline'}"></ion-icon>`
+                ).join('');
+                
+                const initial = r.username ? r.username.charAt(0).toUpperCase() : 'U';
+
+                const html = `
+                    <div class="review-card">
+                        <div class="review-header">
+                            <div class="review-avatar">${initial}</div>
+                            <div class="review-info">
+                                <h4>${sanitize(r.username)}</h4>
+                                <span>Verified User</span>
+                            </div>
+                        </div>
+                        <div class="review-stars">${starsHtml}</div>
+                        <div class="review-text">"${sanitize(r.text)}"</div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+        } else {
+            container.innerHTML = '<p style="grid-column:1/-1; text-align:center; color:#999;">No reviews yet. Be the first to rate us!</p>';
         }
     });
 };

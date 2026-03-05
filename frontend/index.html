@@ -34,6 +34,7 @@
             <li><a class="active" href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
             <li><a href="services.html"><ion-icon name="cube-outline"></ion-icon>Services</a></li>
             <li><a href="orders.html"><ion-icon name="notifications-outline"></ion-icon>Orders <span id="orders-nav-badge" class="nav-badge"></span></a></li>
+            <li><a href="#" onclick="openReviewPopup(); return false;"><ion-icon name="star-outline"></ion-icon>Rate Us</a></li>
         </ul>
 
         <div class="section-title">AUTH</div>
@@ -167,6 +168,13 @@
                     </div>
                 </div>
             </section>
+
+            <section class="reviews-section">
+                <h2>Trusted by Creators</h2>
+                <div id="public-reviews-grid" class="reviews-grid">
+                    <!-- Reviews loaded via JS -->
+                </div>
+            </section>
         </div>
     </main>
 
@@ -180,6 +188,23 @@
                     if(window.openSupportCenter) window.openSupportCenter();
                 });
             </script>
+        </div>
+    </div>
+
+    <div class="popup review-popup" aria-hidden="true">
+        <div class="popup-content" style="max-width: 400px;">
+            <button class="close-icon" onclick="closePopup('.review-popup')">&times;</button>
+            <h2 style="text-align: center;">Write a Review</h2>
+            <div class="star-rating-input">
+                <ion-icon name="star-outline" data-value="1" onclick="setRating(1)"></ion-icon>
+                <ion-icon name="star-outline" data-value="2" onclick="setRating(2)"></ion-icon>
+                <ion-icon name="star-outline" data-value="3" onclick="setRating(3)"></ion-icon>
+                <ion-icon name="star-outline" data-value="4" onclick="setRating(4)"></ion-icon>
+                <ion-icon name="star-outline" data-value="5" onclick="setRating(5)"></ion-icon>
+            </div>
+            <input type="hidden" id="review-rating-value" value="0">
+            <textarea id="review-text" class="form-input" placeholder="Share your experience..." style="width:100%; height:100px; margin-top:15px; resize: none;"></textarea>
+            <button class="cta" onclick="submitReview()" style="width:100%; margin-top:15px">Submit Review</button>
         </div>
     </div>
 
