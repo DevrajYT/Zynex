@@ -170,7 +170,7 @@ onAuthStateChanged(auth, (user) => {
 
         // --- Notification Badge Check on Load ---
         const updateCount = parseInt(localStorage.getItem(`zynex_order_update_count_${user.uid}`) || '0');
-        const onOrdersPage = window.location.pathname.endsWith('/orders.html');
+        const onOrdersPage = window.location.href.includes('orders.html');
         const badge = document.getElementById('orders-nav-badge');
 
         if (onOrdersPage) {
@@ -1829,7 +1829,7 @@ window.setupUserNotifications = function(user) {
 
         const order = snapshot.val();
 
-        const onOrdersPage = window.location.pathname.endsWith('/orders.html');
+        const onOrdersPage = window.location.href.includes('orders.html');
 
         if (!onOrdersPage) {
             // Increment update count only if user is NOT on the orders page
@@ -1858,6 +1858,19 @@ window.setupUserNotifications = function(user) {
         } else { // Otherwise, show an in-app alert
             if (order.status === 'completed') {
                 showAlert(`Order #${order.id.slice(-6)} for ${order.service} is now Completed!`, "Order Update");
+                
+                // Real-time Review Prompt
+                const promptedOrdersKey = `zynex_review_prompted_orders_${user.uid}`;
+                const promptedOrders = JSON.parse(localStorage.getItem(promptedOrdersKey) || '[]');
+
+                if (!promptedOrders.includes(order.id)) {
+                    promptedOrders.push(order.id);
+                    localStorage.setItem(promptedOrdersKey, JSON.stringify(promptedOrders));
+
+                    setTimeout(() => {
+                        if(window.openReviewPopup) window.openReviewPopup();
+                    }, 3000);
+                }
             }
             if (order.status === 'cancelled') showAlert(`Order #${order.id.slice(-6)} was Cancelled. Check details for reason.`, "Order Update");
         }
