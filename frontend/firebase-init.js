@@ -415,6 +415,27 @@ window.editUsername = function () {
     });
 };
 
+// ================= SYNC BADGE ACROSS TABS =================
+window.addEventListener('storage', (e) => {
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    if (e.key === `zynex_order_update_count_${user.uid}`) {
+        const count = parseInt(e.newValue || '0');
+        const badge = document.getElementById('orders-nav-badge');
+        const onOrdersPage = window.location.href.includes('orders.html');
+
+        if (badge) {
+            if (count > 0 && !onOrdersPage) {
+                badge.style.display = 'inline-block';
+                badge.innerText = count > 99 ? '99+' : count;
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    }
+});
+
 
 // Change Profile Image (Preview Only)
 document.getElementById("imageUpload")?.addEventListener("change", function (evt) {
