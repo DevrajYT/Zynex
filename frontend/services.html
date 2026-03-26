@@ -52,7 +52,7 @@
         <h2 style="margin-top:88px">Services</h2>
 
         <div class="dashboard-grid services-grid">
-            <div class="stat-card" style="text-align:center">
+            <div id="instagram" class="stat-card" style="text-align:center">
                 <ion-icon name="logo-instagram" style="font-size:48px; color:#C13584; margin-bottom:10px"></ion-icon>
                 <h3>Instagram</h3>
                 <p style="margin:15px 0; line-height:1.6; color:#555">
@@ -64,7 +64,7 @@
                 </p>
                 <button class="cta" style="width:100%" onclick="openServiceOptions('instagram')">Order Now</button>
             </div>
-            <div class="stat-card" style="text-align:center">
+            <div id="youtube" class="stat-card" style="text-align:center">
                 <ion-icon name="logo-youtube" style="font-size:48px; color:#FF0000; margin-bottom:10px"></ion-icon>
                 <h3>YouTube</h3>
                 <p style="margin:15px 0; line-height:1.6; color:#555">
@@ -76,7 +76,7 @@
                 </p>
                 <button class="cta" style="width:100%" onclick="openServiceOptions('youtube')">Order Now</button>
             </div>
-            <div class="stat-card" style="text-align:center">
+            <div id="facebook" class="stat-card" style="text-align:center">
                 <ion-icon name="logo-facebook" style="font-size:48px; color:#1877F2; margin-bottom:10px"></ion-icon>
                 <h3>Facebook</h3>
                 <p style="margin:15px 0; line-height:1.6; color:#555">
@@ -88,7 +88,7 @@
                 </p>
                 <button class="cta" style="width:100%" onclick="openServiceOptions('facebook')">Order Now</button>
             </div>
-            <div class="stat-card" style="text-align:center">
+            <div id="telegram" class="stat-card" style="text-align:center">
                 <ion-icon name="paper-plane" style="font-size:48px; color:#0088cc; margin-bottom:10px"></ion-icon>
                 <h3>Telegram</h3>
                 <p style="margin:15px 0; line-height:1.6; color:#555">
@@ -120,7 +120,7 @@
     <!-- Service Selection & Order Popup -->
     <div class="popup service-popup" role="dialog" aria-hidden="true">
         <div class="popup-content service-content">
-            <button class="close-icon" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer; z-index:10;" onclick="closePopup('.service-popup')">&times;</button>
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.service-popup')">&times;</button>
             <h2 id="service-popup-title">Select Option</h2>
             
             <!-- Step 1: Options Grid -->
@@ -173,7 +173,7 @@
     <!-- Payment & UTR Verification Popup -->
     <div class="popup payment-popup" role="dialog" aria-hidden="true">
         <div class="popup-content payment-content" style="max-width:420px; padding: 25px 20px; width: 95%;">
-            <button class="close-icon" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer; z-index:10; color:#888;" onclick="closePopup('.payment-popup')">&times;</button>
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.payment-popup')">&times;</button>
             <h2 style="text-align:center; font-size:1.6rem; margin-bottom:5px; color:#333;">Complete Payment</h2>
             <p style="text-align:center; color:#666; font-size:0.9rem; margin-bottom:25px;">Scan the QR code below to pay</p>
             
@@ -207,7 +207,7 @@
     <!-- Login Required Popup -->
     <div class="popup login-required-popup" role="dialog" aria-hidden="true">
         <div class="popup-content" style="max-width:350px; text-align:center">
-            <button class="close-icon" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer;" onclick="closePopup('.login-required-popup')">&times;</button>
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.login-required-popup')">&times;</button>
             <h2 style="margin-bottom:15px">Login Required</h2>
             <p style="color:#666; margin-bottom:25px">Please log in to proceed with your order.</p>
             <button class="btn-white-primary" style="width:100%" onclick="window.location.href='account.html?login=true'"><ion-icon name="log-in-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Login to Continue</button>
@@ -217,7 +217,7 @@
     <!-- Payment Tutorial Popup -->
     <div class="popup tutorial-popup" role="dialog" aria-hidden="true">
         <div class="popup-content" style="max-width:800px; width:90%; text-align:left; position:relative; max-height: 90vh; overflow-y: auto;">
-            <button class="close-icon" style="position:sticky; top:15px; float:right; background:none; border:none; font-size:1.5rem; cursor:pointer; z-index:10;" onclick="closePopup('.tutorial-popup')">&times;</button>
+            <button class="close-icon close-icon-sticky" aria-label="Close" onclick="closePopup('.tutorial-popup')">&times;</button>
             <h2 style="text-align:center; margin-bottom:20px">Payment Steps</h2>
             
             <div style="display:flex; gap:30px; flex-wrap:wrap; align-items:flex-start;">
@@ -244,7 +244,7 @@
 
     <div class="popup review-popup" aria-hidden="true">
         <div class="popup-content" style="max-width: 400px;">
-            <button class="close-icon" onclick="closePopup('.review-popup')">&times;</button>
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.review-popup')">&times;</button>
             <h2 style="text-align: center;">Write a Review</h2>
             <div class="star-rating-input">
                 <ion-icon name="star-outline" data-value="1" onclick="setRating(1)"></ion-icon>
@@ -258,276 +258,6 @@
             <button class="btn-white-primary" onclick="submitReview()" style="width:100%; margin-top:15px"><ion-icon name="send-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Submit Review</button>
         </div>
     </div>
-
-    <script>
-        const serviceConfig = {
-            instagram: {
-                title: "Instagram",
-                options: [
-                    { name: "Followers", price: 0.4, icon: "people-outline", min: 10, max: 10000 },
-                    { name: "Likes", price: 0.05, icon: "heart-outline", min: 100, max: 100000 },
-                    { name: "Views", price: 0.01, icon: "eye-outline", min: 100, max: 1000000 },
-                    { name: "Comments", price: 0.5, icon: "chatbubble-outline", min: 50, max: 50000 },
-                    { name: "Reel Repost", price: 0.3, icon: "repeat-outline", min: 10, max: 1000 },
-                    { name: "Reel Save", price: 0.1, icon: "bookmark-outline", min: 10, max: 100000 },
-                    { name: "Reel Share", price: 0.2, icon: "share-social-outline", min: 10, max: 100000 },
-                    { name: "Story Views", price: 0.05, icon: "aperture-outline", min: 100, max: 10000 }
-                ]
-            },
-            youtube: {
-                title: "YouTube",
-                options: [
-                    { name: "Subscribers", price: 4.0, icon: "person-add-outline", min: 10, max: 10000 },
-                    { name: "Likes", price: 0.2, icon: "thumbs-up-outline", min: 50, max: 10000 },
-                    { name: "Views", price: 0.7, icon: "play-circle-outline", min: 100, max: 100000 },
-                    { name: "Comment Likes", price: 0.030, icon: "heart-circle-outline", min: 100, max: 100000 },
-                    { name: "Comments (Coming Soon)", price: 3.00, icon: "chatbubbles-outline", disabled: true },
-                    { name: "Watch Time (Coming Soon)", price: 4.00, icon: "time-outline", disabled: true },
-                ]
-            },
-            facebook: {
-                title: "Facebook",
-                options: [
-                    { name: "Followers", price: 0.4, icon: "people-outline", min: 10, max: 10000 },
-                    { name: "Likes", price: 0.1, icon: "thumbs-up-outline", min: 50, max: 100000 },
-                    { name: "Video Views", price: 0.04, icon: "videocam-outline", min: 100, max: 100000 }
-                ]
-            },
-            telegram: {
-                title: "Telegram",
-                options: [
-                    { name: "Members", price: 0.3, icon: "people-outline", min: 10, max: 100000 },
-                    { name: "Views", price: 0.02, icon: "eye-outline", min: 50, max: 100000 },
-                    { name: "Post Share", price: 0.02, icon: "share-social-outline", min: 50, max: 100000 },
-                    { name: "Comments", price: 0.6, icon: "chatbubbles-outline", min: 50, max: 10000 }
-                ]
-            }
-        };
-
-        let currentServiceData = null;
-        let selectedOptionData = null;
-
-        function openServiceOptions(platform) {
-            currentServiceData = serviceConfig[platform];
-            if(!currentServiceData) return;
-
-            // Reset UI to Step 1
-            document.getElementById('service-popup-title').innerText = currentServiceData.title + " Services";
-            document.getElementById('service-options-grid').style.display = 'grid';
-            document.getElementById('service-order-form').style.display = 'none';
-            
-            // Generate Buttons dynamically
-            const grid = document.getElementById('service-options-grid');
-            grid.innerHTML = '';
-            
-            currentServiceData.options.forEach(opt => {
-                const btn = document.createElement('button');
-                btn.className = 'service-opt-btn';
-                btn.innerHTML = `<ion-icon name="${opt.icon}"></ion-icon> ${opt.name}`;
-                
-                if (opt.name.includes('(Coming Soon)')) {
-                    btn.disabled = true;
-                    btn.style.opacity = '0.5';
-                    btn.style.cursor = 'not-allowed';
-                } else {
-                    btn.onclick = () => showOrderForm(opt);
-                }
-                grid.appendChild(btn);
-            });
-
-            openPopup('.service-popup');
-        }
-
-        function showOrderForm(option) {
-            clearErrors();
-            selectedOptionData = option;
-            document.getElementById('service-popup-title').innerText = currentServiceData.title + " " + option.name;
-            document.getElementById('service-options-grid').style.display = 'none';
-            document.getElementById('service-order-form').style.display = 'block';
-            
-            // Dynamic Form Logic
-            const labelLink = document.getElementById('label-link');
-            const platform = currentServiceData.title;
-
-            // Reset defaults
-            labelLink.innerText = 'Link';
-
-            if (platform === 'YouTube') {
-                if (option.name === 'Subscribers') {
-                    labelLink.innerText = 'Channel Link';
-                } else {
-                    labelLink.innerText = 'Short/Video Link';
-                }
-            } else if (platform === 'Instagram') {
-                if (option.name === 'Followers' || option.name === 'Story Views') {
-                    labelLink.innerText = 'Profile URL';
-                } else {
-                    labelLink.innerText = 'Post/Reel Link';
-                }
-            } else if (platform === 'Facebook') {
-                if (option.name === 'Followers') {
-                    labelLink.innerText = 'Profile/Page URL';
-                } else {
-                    labelLink.innerText = 'Post/Video Link';
-                }
-            } else if (platform === 'Telegram') {
-                if (option.name === 'Members') {
-                    labelLink.innerText = 'Channel/Group Link';
-                } else {
-                    labelLink.innerText = 'Message/Post Link';
-                }
-            }
-
-            // Set Limits Text and Attributes
-            const limitText = document.getElementById('order-limits');
-            const amountInput = document.getElementById('order-amount');
-
-            // Set placeholder unit
-            if (option.name.toLowerCase().includes('watch time')) {
-                amountInput.placeholder = '(in hours)';
-            } else {
-                amountInput.placeholder = '1000';
-            }
-
-            if (option.min && option.max) {
-                limitText.innerText = `Min: ${option.min} - Max: ${option.max}`;
-                amountInput.min = option.min;
-                amountInput.max = option.max;
-            } else {
-                limitText.innerText = '';
-                amountInput.removeAttribute('min');
-                amountInput.removeAttribute('max');
-            }
-
-            // Reset Form Fields
-            document.getElementById('order-link').value = '';
-            document.getElementById('order-amount').value = '';
-            document.getElementById('order-total').innerText = '0';
-        }
-
-        function backToOptions() {
-            document.getElementById('service-popup-title').innerText = currentServiceData.title + " Services";
-            document.getElementById('service-options-grid').style.display = 'grid';
-            document.getElementById('service-order-form').style.display = 'none';
-        }
-
-        function backToOrder() {
-            closePopup('.payment-popup');
-            openPopup('.service-popup');
-        }
-
-        function calculateTotal() {
-            const amount = parseFloat(document.getElementById('order-amount').value) || 0;
-            const price = selectedOptionData ? selectedOptionData.price : 0;
-            const total = Math.ceil(amount * price);
-            document.getElementById('order-total').innerText = total;
-        }
-
-        function showError(id, msg) {
-            const el = document.getElementById(id);
-            if (el) {
-                el.innerText = msg;
-                el.style.display = 'block';
-            }
-        }
-
-        function clearErrors() {
-            document.querySelectorAll('.error-text').forEach(el => el.style.display = 'none');
-        }
-
-        function submitOrder() {
-            clearErrors();
-            let hasError = false;
-
-            const link = document.getElementById('order-link').value.trim();
-            if (!link) {
-                showError('error-link', "Please enter the link.");
-                hasError = true;
-            }
-
-            const amountInput = document.getElementById('order-amount').value;
-            const amount = parseFloat(amountInput);
-            
-            if(!amountInput || isNaN(amount) || amount <= 0) {
-                showError('error-amount', "Please enter a valid amount.");
-                hasError = true;
-            } else if (selectedOptionData && (amount < selectedOptionData.min || amount > selectedOptionData.max)) {
-                showError('error-amount', `Amount must be between ${selectedOptionData.min} and ${selectedOptionData.max}.`);
-                hasError = true;
-            }
-
-            if (hasError) return;
-
-            if (window.isUserLoggedIn && !window.isUserLoggedIn()) {
-                closePopup('.service-popup');
-                openPopup('.login-required-popup');
-                return;
-            }
-
-            // Placeholder for actual order submission logic
-            // showAlert(`Redirecting to payment gateway...\nTotal: ₹${document.getElementById('order-total').innerText}`, "Processing Payment");
-            // closePopup('.service-popup');
-            
-            // Open Payment Popup
-            const total = document.getElementById('order-total').innerText;
-            document.getElementById('pay-amount').innerText = '₹' + total;
-            closePopup('.service-popup');
-            openPopup('.payment-popup');
-        }
-
-        function processPayment() {
-            const btn = document.getElementById('btn-verify-payment');
-            clearErrors();
-            const utr = document.getElementById('utr-id').value.trim();
-            // Strict validation: 12 characters, alphanumeric
-            if (!utr || utr.length !== 12 || !/^[a-zA-Z0-9]+$/.test(utr)) {
-                showError('error-utr', "Invalid UTR ID. It must be exactly 12 alphanumeric characters.");
-                return;
-            }
-
-            // Disable button to prevent multiple clicks
-            if (btn) {
-                if (btn.disabled) return;
-                btn.disabled = true;
-                btn.innerHTML = '<ion-icon name="sync-outline" class="spin" style="margin-right:8px; font-size:1.3rem;"></ion-icon> Processing...';
-                btn.style.opacity = "0.7";
-                btn.style.cursor = "wait";
-            }
-
-            const orderData = {
-                service: currentServiceData.title,
-                option: selectedOptionData.name,
-                link: document.getElementById('order-link').value,
-                amount: parseFloat(document.getElementById('order-amount').value),
-                totalPrice: parseFloat(document.getElementById('order-total').innerText),
-                utr: utr
-            };
-
-            const resetButton = () => {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = '<ion-icon name="checkmark-circle-outline" style="margin-right:8px; font-size:1.3rem;"></ion-icon> Verify & Submit Order';
-                    btn.style.opacity = "1";
-                    btn.style.cursor = "pointer";
-                }
-            };
-
-            if (window.submitOrderToDB) {
-                window.submitOrderToDB(orderData, (orderId) => {
-                    showAlert("Order placed successfully! We will verify your payment shortly.", "Success");
-                    closePopup('.payment-popup');
-                    document.getElementById('utr-id').value = ''; // reset
-                    resetButton();
-                }, (errMsg) => {
-                    showAlert("Failed to place order: " + errMsg, "Error");
-                    resetButton();
-                });
-            } else {
-                showAlert("Database connection not initialized.", "System Error");
-                resetButton();
-            }
-        }
-    </script>
 
 </body>
 

@@ -247,6 +247,7 @@ ion-icon {
 .popup[aria-hidden="true"]{display:none}
 
 .popup-content {
+    position: relative; /* For positioning child elements like the close icon */
     background: white;
     padding: 20px 60px;
     border-radius: 10px;
@@ -271,16 +272,37 @@ ion-icon {
     position: relative;
     text-align: left;
 }
-.popup-content.help .close-icon {
+
+/* Generic Popup Close Icon */
+.close-icon {
     position: absolute;
-    top: 12px;
-    right: 12px;
-    background: none;
+    top: 15px;
+    right: 15px;
+    background: transparent;
     border: none;
-    font-size: 1.2rem;
+    font-size: 1.8rem;
+    line-height: 1;
+    color: #888;
     cursor: pointer;
-    color: #666;
+    padding: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s, color 0.2s;
+    z-index: 10;
 }
+.close-icon:hover {
+    background-color: #f0f0f0;
+    color: #333;
+}
+.close-icon.close-icon-sticky {
+    position: sticky;
+    float: right;
+}
+
 .popup-content.help h2 {
     margin-top: 0;
     text-align: center;
@@ -993,7 +1015,7 @@ body.dark-mode h1, body.dark-mode h2, body.dark-mode h3, body.dark-mode h4, body
 body.dark-mode p, body.dark-mode small, body.dark-mode .label { color: #bbb; }
 body.dark-mode .hero-panel { background: linear-gradient(90deg, #1e1e1e, #252525); border: 1px solid #333; }
 body.dark-mode .stat-chart { background: linear-gradient(90deg, #2c2c2c, #333); }
-body.dark-mode .close-icon, body.dark-mode .close-btn { color: #fff; }
+body.dark-mode .close-btn { color: #fff; }
 
 /* Dark Mode Inputs */
 body.dark-mode input, body.dark-mode .form-input {
@@ -1002,6 +1024,15 @@ body.dark-mode input, body.dark-mode .form-input {
     color: #fff;
 }
 body.dark-mode input:focus, body.dark-mode .form-input:focus { border-color: #5c6cff; }
+
+/* Dark Mode for new close icon */
+body.dark-mode .close-icon {
+    color: #aaa;
+}
+body.dark-mode .close-icon:hover {
+    background-color: #333;
+    color: #fff;
+}
 
 /* Restore hover for service buttons in dark mode */
 body.dark-mode .service-opt-btn:hover {

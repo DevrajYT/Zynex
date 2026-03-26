@@ -75,20 +75,20 @@
         <div class="service-showcase-container">
             <div class="service-showcase-card">
                 <!-- Items are duplicated for a seamless loop -->
-                <div class="service-showcase-item" onclick="openServiceOptions('instagram')"><ion-icon name="logo-instagram" style="color: #C13584;"></ion-icon><span>Instagram Followers</span></div>
-                <div class="service-showcase-item" onclick="openServiceOptions('youtube')"><ion-icon name="logo-youtube" style="color: #FF0000;"></ion-icon><span>YouTube Views</span></div>
-                <div class="service-showcase-item" onclick="openServiceOptions('facebook')"><ion-icon name="logo-facebook" style="color: #1877F2;"></ion-icon><span>Facebook Likes</span></div>
-                <div class="service-showcase-item" onclick="openServiceOptions('telegram')"><ion-icon name="paper-plane" style="color: #0088cc;"></ion-icon><span>Telegram Members</span></div>
-                <div class="service-showcase-item" onclick="openServiceOptions('instagram')"><ion-icon name="logo-instagram" style="color: #C13584;"></ion-icon><span>Instagram Likes</span></div>
-                <div class="service-showcase-item" onclick="openServiceOptions('youtube')"><ion-icon name="logo-youtube" style="color: #FF0000;"></ion-icon><span>YouTube Subscribers</span></div>
+                <div class="service-showcase-item" onclick="goToService('instagram')"><ion-icon name="logo-instagram" style="color: #C13584;"></ion-icon><span>Instagram Followers</span></div>
+                <div class="service-showcase-item" onclick="goToService('youtube')"><ion-icon name="logo-youtube" style="color: #FF0000;"></ion-icon><span>YouTube Views</span></div>
+                <div class="service-showcase-item" onclick="goToService('facebook')"><ion-icon name="logo-facebook" style="color: #1877F2;"></ion-icon><span>Facebook Likes</span></div>
+                <div class="service-showcase-item" onclick="goToService('telegram')"><ion-icon name="paper-plane" style="color: #0088cc;"></ion-icon><span>Telegram Members</span></div>
+                <div class="service-showcase-item" onclick="goToService('instagram')"><ion-icon name="logo-instagram" style="color: #C13584;"></ion-icon><span>Instagram Likes</span></div>
+                <div class="service-showcase-item" onclick="goToService('youtube')"><ion-icon name="logo-youtube" style="color: #FF0000;"></ion-icon><span>YouTube Subscribers</span></div>
 
                 <!-- Duplicate Set -->
-                <div class="service-showcase-item" onclick="openServiceOptions('instagram')"><ion-icon name="logo-instagram" style="color: #C13584;"></ion-icon><span>Instagram Followers</span></div>
-                <div class="service-showcase-item" onclick="openServiceOptions('youtube')"><ion-icon name="logo-youtube" style="color: #FF0000;"></ion-icon><span>YouTube Views</span></div>
-                <div class="service-showcase-item" onclick="openServiceOptions('facebook')"><ion-icon name="logo-facebook" style="color: #1877F2;"></ion-icon><span>Facebook Likes</span></div>
-                <div class="service-showcase-item" onclick="openServiceOptions('telegram')"><ion-icon name="paper-plane" style="color: #0088cc;"></ion-icon><span>Telegram Members</span></div>
-                <div class="service-showcase-item" onclick="openServiceOptions('instagram')"><ion-icon name="logo-instagram" style="color: #C13584;"></ion-icon><span>Instagram Likes</span></div>
-                <div class="service-showcase-item" onclick="openServiceOptions('youtube')"><ion-icon name="logo-youtube" style="color: #FF0000;"></ion-icon><span>YouTube Subscribers</span></div>
+                <div class="service-showcase-item" onclick="goToService('instagram')"><ion-icon name="logo-instagram" style="color: #C13584;"></ion-icon><span>Instagram Followers</span></div>
+                <div class="service-showcase-item" onclick="goToService('youtube')"><ion-icon name="logo-youtube" style="color: #FF0000;"></ion-icon><span>YouTube Views</span></div>
+                <div class="service-showcase-item" onclick="goToService('facebook')"><ion-icon name="logo-facebook" style="color: #1877F2;"></ion-icon><span>Facebook Likes</span></div>
+                <div class="service-showcase-item" onclick="goToService('telegram')"><ion-icon name="paper-plane" style="color: #0088cc;"></ion-icon><span>Telegram Members</span></div>
+                <div class="service-showcase-item" onclick="goToService('instagram')"><ion-icon name="logo-instagram" style="color: #C13584;"></ion-icon><span>Instagram Likes</span></div>
+                <div class="service-showcase-item" onclick="goToService('youtube')"><ion-icon name="logo-youtube" style="color: #FF0000;"></ion-icon><span>YouTube Subscribers</span></div>
             </div>
         </div>
 
@@ -207,7 +207,7 @@
             <script>
                 // Initialize with default view
                 document.addEventListener('DOMContentLoaded', () => {
-                    if(window.openSupportCenter) window.openSupportCenter();
+                    const check = setInterval(() => { if(window.openSupportCenter) { window.openSupportCenter(); clearInterval(check); } }, 100);
                 });
             </script>
         </div>
@@ -216,7 +216,7 @@
     <!-- Service Selection & Order Popup (Copied from services.html) -->
     <div class="popup service-popup" role="dialog" aria-hidden="true">
         <div class="popup-content service-content">
-            <button class="close-icon" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer; z-index:10;" onclick="closePopup('.service-popup')">&times;</button>
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.service-popup')">&times;</button>
             <h2 id="service-popup-title">Select Option</h2>
             
             <!-- Step 1: Options Grid -->
@@ -269,7 +269,7 @@
     <!-- Payment & UTR Verification Popup (Copied from services.html) -->
     <div class="popup payment-popup" role="dialog" aria-hidden="true">
         <div class="popup-content payment-content" style="max-width:420px; padding: 25px 20px; width: 95%;">
-            <button class="close-icon" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer; z-index:10; color:#888;" onclick="closePopup('.payment-popup')">&times;</button>
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.payment-popup')">&times;</button>
             <h2 style="text-align:center; font-size:1.6rem; margin-bottom:5px; color:#333;">Complete Payment</h2>
             <p style="text-align:center; color:#666; font-size:0.9rem; margin-bottom:25px;">Scan the QR code below to pay</p>
             
@@ -303,7 +303,7 @@
     <!-- Login Required Popup (Copied from services.html) -->
     <div class="popup login-required-popup" role="dialog" aria-hidden="true">
         <div class="popup-content" style="max-width:350px; text-align:center">
-            <button class="close-icon" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer;" onclick="closePopup('.login-required-popup')">&times;</button>
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.login-required-popup')">&times;</button>
             <h2 style="margin-bottom:15px">Login Required</h2>
             <p style="color:#666; margin-bottom:25px">Please log in to proceed with your order.</p>
             <button class="btn-white-primary" style="width:100%" onclick="window.location.href='account.html?login=true'"><ion-icon name="log-in-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Login to Continue</button>
@@ -313,7 +313,7 @@
     <!-- Payment Tutorial Popup (Copied from services.html) -->
     <div class="popup tutorial-popup" role="dialog" aria-hidden="true">
         <div class="popup-content" style="max-width:800px; width:90%; text-align:left; position:relative; max-height: 90vh; overflow-y: auto;">
-            <button class="close-icon" style="position:sticky; top:15px; float:right; background:none; border:none; font-size:1.5rem; cursor:pointer; z-index:10;" onclick="closePopup('.tutorial-popup')">&times;</button>
+            <button class="close-icon close-icon-sticky" aria-label="Close" onclick="closePopup('.tutorial-popup')">&times;</button>
             <h2 style="text-align:center; margin-bottom:20px">Payment Steps</h2>
             
             <div style="display:flex; gap:30px; flex-wrap:wrap; align-items:flex-start;">
@@ -340,7 +340,7 @@
 
     <div class="popup review-popup" aria-hidden="true">
         <div class="popup-content" style="max-width: 400px;">
-            <button class="close-icon" onclick="closePopup('.review-popup')">&times;</button>
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.review-popup')">&times;</button>
             <h2 style="text-align: center;">Write a Review</h2>
             <div class="star-rating-input">
                 <ion-icon name="star-outline" data-value="1" onclick="setRating(1)"></ion-icon>
@@ -358,7 +358,7 @@
     <!-- Giveaway Popup -->
     <div class="popup giveaway-popup" aria-hidden="true">
         <div class="popup-content" style="max-width: 400px; text-align: center;">
-            <button class="close-icon" onclick="closePopup('.giveaway-popup')">&times;</button>
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.giveaway-popup')">&times;</button>
             <h2 style="margin-bottom: 15px;">🎁 Enter Giveaway</h2>
             <p style="color: #666; margin-bottom: 15px;">Step 1: Follow <a href="https://instagram.com/smmzynex.in" target="_blank" style="color: #c13584; font-weight: bold;">@smmzynex.in</a> on Instagram</p>
             <p style="color: #666; margin-bottom: 15px;">Step 2: Enter your Instagram username below so we can verify!</p>

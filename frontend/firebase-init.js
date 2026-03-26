@@ -517,6 +517,199 @@ window.submitOrderToDB = async function(orderData, onSuccess, onError) {
     }
 };
 
+// ================= ORDER POPUP FLOW =================
+
+// Global state for the order process
+let currentOrder = {
+    service: null,
+    option: null,
+    price: 0,
+    min: 0,
+    max: 0
+};
+let serviceConfigCache = null;
+
+async function fetchServiceConfig() {
+    if (serviceConfigCache) {
+        return serviceConfigCache;
+    }
+    try {
+        const response = await fetch(`${window.BACKEND_URL}/api/services`);
+        if (!response.ok) throw new Error('Could not load services.');
+        serviceConfigCache = await response.json();
+        return serviceConfigCache;
+    } catch (error) {
+        console.error("Failed to fetch service config:", error);
+        showAlert(error.message, "Error");
+        return null;
+    }
+}
+
+window.openServiceOptions = async function(serviceKey) {
+    if (!window.isUserLoggedIn()) {
+        openPopup('.login-required-popup');
+        return;
+    }
+
+    const optionsGrid = document.getElementById('service-options-grid');
+    const orderForm = document.getElementById('service-order-form');
+    const popupTitle = document.getElementById('service-popup-title');
+
+    // Reset view
+    orderForm.style.display = 'none';
+    optionsGrid.style.display = 'grid';
+    optionsGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: #999;">Loading options...</p>';
+    openPopup('.service-popup');
+
+    const config = await fetchServiceConfig();
+    if (!config || !config[serviceKey]) {
+        optionsGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: red;">Could not load options for this service.</p>';
+        return;
+    }
+
+    const serviceData = config[serviceKey];
+    popupTitle.innerText = `Select a ${serviceData.title} Service`;
+    optionsGrid.innerHTML = '';
+
+    serviceData.options.forEach(opt => {
+        if (opt.disabled) return;
+        const btn = document.createElement('button');
+        btn.className = 'service-opt-btn';
+        btn.onclick = () => selectServiceOption(serviceKey, opt.name);
+        btn.innerHTML = `<ion-icon name="${opt.icon || 'ellipse-outline'}"></ion-icon><span>${opt.name}</span>`;
+        optionsGrid.appendChild(btn);
+    });
+};
+
+window.selectServiceOption = async function(serviceKey, optionName) {
+    const config = await fetchServiceConfig();
+    const serviceData = config[serviceKey];
+    const optionData = serviceData.options.find(opt => opt.name === optionName);
+
+    if (!optionData) {
+        showAlert('Selected option is not available.', 'Error');
+        return;
+    }
+
+    // Store current order details
+    currentOrder = {
+        service: serviceData.title,
+        option: optionData.name,
+        price: optionData.price,
+        min: optionData.min,
+        max: optionData.max
+    };
+
+    // Update UI
+    document.getElementById('label-link').innerText = `Enter ${serviceData.title} Link`;
+    document.getElementById('order-limits').innerText = `Min: ${optionData.min}, Max: ${optionData.max}`;
+    document.getElementById('order-amount').value = '';
+    document.getElementById('order-total').innerText = '0';
+    document.getElementById('order-link').value = '';
+    clearInlineErrors();
+
+    // Switch views
+    document.getElementById('service-options-grid').style.display = 'none';
+    document.getElementById('service-order-form').style.display = 'block';
+};
+
+window.backToOptions = function() {
+    document.getElementById('service-order-form').style.display = 'none';
+    document.getElementById('service-options-grid').style.display = 'grid';
+    document.getElementById('service-popup-title').innerText = `Select a ${currentOrder.service} Service`;
+    currentOrder = {}; // Clear current order state
+};
+
+window.calculateTotal = function() {
+    const amount = parseInt(document.getElementById('order-amount').value, 10);
+    const totalEl = document.getElementById('order-total');
+    if (isNaN(amount) || amount <= 0) {
+        totalEl.innerText = '0';
+        return;
+    }
+    const total = Math.ceil(amount * currentOrder.price);
+    totalEl.innerText = total;
+};
+
+window.submitOrder = function() {
+    clearInlineErrors();
+    const link = document.getElementById('order-link').value.trim();
+    const amount = parseInt(document.getElementById('order-amount').value, 10);
+
+    let hasError = false;
+    if (!link || !link.startsWith('http')) {
+        showInlineError('error-link', 'A valid link is required (e.g., https://...).');
+        hasError = true;
+    }
+    if (isNaN(amount) || amount < currentOrder.min || amount > currentOrder.max) {
+        showInlineError('error-amount', `Amount must be between ${currentOrder.min} and ${currentOrder.max}.`);
+        hasError = true;
+    }
+
+    if (hasError) return;
+
+    const total = Math.ceil(amount * currentOrder.price);
+    currentOrder.link = link;
+    currentOrder.amount = amount;
+    currentOrder.totalPrice = total;
+
+    // Populate and open payment popup
+    document.getElementById('pay-amount').innerText = `₹${total}`;
+    document.getElementById('utr-id').value = '';
+    
+    closePopup('.service-popup');
+    openPopup('.payment-popup');
+};
+
+window.backToOrder = function() {
+    closePopup('.payment-popup');
+    openPopup('.service-popup');
+    // Ensure we are on the form view, not options grid
+    document.getElementById('service-options-grid').style.display = 'none';
+    document.getElementById('service-order-form').style.display = 'block';
+};
+
+window.processPayment = async function() {
+    clearInlineErrors();
+    const utr = document.getElementById('utr-id').value.trim();
+    const btn = document.getElementById('btn-verify-payment');
+
+    if (!utr || utr.length !== 12 || !/^[a-zA-Z0-9]+$/.test(utr)) {
+        showInlineError('error-utr', 'Please enter a valid 12-digit UTR ID.');
+        return;
+    }
+
+    const orderData = {
+        service: currentOrder.service,
+        option: currentOrder.option,
+        link: currentOrder.link,
+        amount: currentOrder.amount,
+        utr: utr
+    };
+
+    // Disable button and show loading
+    btn.disabled = true;
+    btn.innerHTML = '<ion-icon name="sync-outline" class="spin" style="margin-right:8px; font-size:1.3rem;"></ion-icon> Verifying...';
+
+    await submitOrderToDB(orderData, 
+        (orderId) => { // onSuccess
+            showAlert(`Your order #${orderId.slice(-6)} has been placed successfully! We will verify your payment shortly.`, 'Order Placed!');
+            closePopup('.payment-popup');
+            // Optionally redirect to orders page
+            if (window.location.pathname.includes('orders.html')) {
+                window.location.reload();
+            } else {
+                window.location.href = 'orders.html';
+            }
+        }, 
+        (errorMsg) => { // onError
+            showInlineError('error-utr', errorMsg);
+            btn.disabled = false;
+            btn.innerHTML = '<ion-icon name="checkmark-circle-outline" style="margin-right:8px; font-size:1.3rem;"></ion-icon> Verify & Submit Order';
+        }
+    );
+};
+
 // ================= ORDER DETAILS POPUP =================
 window.openOrderDetails = function(orderId) {
     const orders = window.userOrders || {};

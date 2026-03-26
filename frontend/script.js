@@ -88,6 +88,39 @@ document.addEventListener("DOMContentLoaded", function () {
 
 });
 
+// ===== AUTO-OPEN / HIGHLIGHT SERVICE FROM URL =====
+document.addEventListener("DOMContentLoaded", function () {
+    const urlParams = new URLSearchParams(window.location.search);
+    const serviceParam = urlParams.get('service');
+    
+    if (serviceParam) {
+        // This logic should only run on pages with a .services-grid (i.e., services.html)
+        if (!document.querySelector('.services-grid')) return;
+
+        // Small timeout ensures all page elements, especially dynamic ones, are loaded
+        setTimeout(() => {
+            // Find the service card by its ID (e.g., id="instagram")
+            const serviceCard = document.getElementById(serviceParam);
+            
+            if (serviceCard) {
+                // Find the "Order Now" button within that card
+                const orderButton = serviceCard.querySelector('button.cta');
+
+                // Scroll the card into view first for a nice visual effect
+                serviceCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // Briefly highlight it to draw the user's attention
+                const originalShadow = serviceCard.style.boxShadow || '';
+                serviceCard.style.boxShadow = '0 0 20px rgba(92, 108, 255, 0.6)';
+                setTimeout(() => serviceCard.style.boxShadow = originalShadow, 2000);
+
+                // After a short delay for the scroll, click the button to open the popup
+                if (orderButton) setTimeout(() => orderButton.click(), 700);
+            }
+        }, 500);
+    }
+});
+
 // ================= GLOBAL ERROR HELPERS =================
 window.showInlineError = function(id, msg) {
     const el = document.getElementById(id);
@@ -184,4 +217,10 @@ window.showPrompt = function(msg, onSubmit) {
         closeCustomPopup('custom-prompt'); 
     };
     document.getElementById('custom-prompt').setAttribute('aria-hidden', 'false');
+};
+
+// ================= DASHBOARD NAVIGATION HELPERS =================
+window.goToService = function(serviceId, targetPage = 'services.html') {
+    // Redirect to the services page with the target service as a query parameter
+    window.location.href = `${targetPage}?service=${encodeURIComponent(serviceId)}`;
 };

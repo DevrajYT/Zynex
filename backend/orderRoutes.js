@@ -63,27 +63,13 @@ router.post('/orders', verifyFirebaseToken, async (req, res) => {
         return res.status(400).json({ msg: `Amount must be between ${optionData.min} and ${optionData.max}.` });
     }
 
-    // --- UTR Uniqueness Check ---
-    const usersRef = db.ref('users');
-    const snapshot = await usersRef.once('value');
-    let utrExists = false;
-    if (snapshot.exists()) {
-        snapshot.forEach(userSnapshot => {
-            const orders = userSnapshot.child('orders').val();
-            if (orders) {
-                for (const orderId in orders) {
-                    // Check if UTR matches and the order wasn't cancelled (cancelled orders can have their UTR reused)
-                    if (orders[orderId].utr === utr && orders[orderId].status !== 'cancelled') {
-                        utrExists = true;
-                        return true; // break from forEach
-                    }
-                }
-            }
-            if (utrExists) return true; // break from outer forEach
-        });
-    }
+    // --- UTR Uniqueness Check (Scalable) ---
+    // This check prevents a UTR from being used more than once for a valid order.
+    // NOTE: For UTR reuse on cancelled orders, your admin backend must delete the corresponding entry from the '/utrs' path when an order is cancelled.
+    const utrRef = db.ref(`utrs/${utr}`);
+    const utrSnapshot = await utrRef.once('value');
 
-    if (utrExists) {
+    if (utrSnapshot.exists()) {
         return res.status(400).json({ msg: 'This UTR ID has already been used for a valid order.' });
     }
 
@@ -105,9 +91,12 @@ router.post('/orders', verifyFirebaseToken, async (req, res) => {
     };
 
     try {
-        // Save to Realtime Database
-        const orderRef = db.ref(`users/${uid}/orders/${orderId}`);
-        await orderRef.set(newOrder);
+        // Use a multi-path update to write to both locations atomically, ensuring data consistency.
+        const updates = {};
+        updates[`/users/${uid}/orders/${orderId}`] = newOrder;
+        updates[`/utrs/${utr}`] = { orderId: orderId, userId: uid, timestamp: Date.now() };
+
+        await db.ref().update(updates);
 
         res.status(201).json({ msg: 'Order placed successfully! We will verify your payment shortly.', order: newOrder });
     } catch (err) {
