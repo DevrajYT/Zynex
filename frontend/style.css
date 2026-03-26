@@ -59,7 +59,9 @@ header {
         width: calc(100% - 250px);
     }
 }
-
+.close-icon {
+    display: none !important;
+}
 /* prevent horizontal scroll when sidebar is open */
 body {
     overflow-x: hidden;
@@ -241,6 +243,54 @@ ion-icon {
 .service-card .label{font-weight:600}
 .service-card:focus,.service-card:hover{outline:0;transform:translateY(-3px);box-shadow:0 6px 18px rgba(0,0,0,.08)}
 
+
+.service-option-button .details h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #222;
+    display: block;
+}
+
+.service-option-button .details {
+    display: flex;
+    flex-direction: column;
+}
+
+/* FIX SERVICE OPTIONS VISIBILITY */
+.service-option-button {
+    background: #ffffff !important;
+    opacity: 1 !important;
+    filter: none !important;
+}
+
+.service-option-button .details h3 {
+    display: block !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    color: #222 !important;
+    margin-bottom: 4px;
+}
+
+.service-option-button .details p {
+    color: #666 !important;
+}
+
+.popup {
+    background: rgba(0,0,0,0.6);
+}
+
+.popup-content {
+    background: #fff !important;
+    color: #222 !important;
+    opacity: 1 !important;
+}
+
+/* FIX POPUP SCROLL */
+.popup-content {
+    max-height: 90vh;
+    overflow-y: auto;
+    overflow-x: hidden; /* remove horizontal scrollbar */
+}
 /* keep previous popup section above */
 /* existing popup style unchanged */
 .popup{width:100%;height:100%;position:fixed;top:0;left:0;background:rgba(0,0,0,.5);display:flex;justify-content:center;align-items:center;z-index:3000}
@@ -872,6 +922,59 @@ ion-icon {
 .service-opt-btn:hover ion-icon {
     color: white;
 }
+
+/* New Professional Service Option Buttons */
+.service-option-button {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    width: 100%;
+    padding: 15px;
+    margin: 0;
+    text-align: left;
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.04);
+}
+
+.service-option-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    border-color: #5c6cff;
+}
+
+.service-option-button .icon-wrapper {
+    width: 45px;
+    height: 45px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.service-option-button .icon-wrapper ion-icon {
+    font-size: 24px;
+    margin: 0;
+}
+
+.service-option-button .details h3 {
+    font-size: 1rem;
+    margin: 0 0 2px 0;
+    font-weight: 600;
+    color: #333;
+}
+
+.service-option-button .details p {
+    font-size: 0.8rem;
+    margin: 0;
+    line-height: 1.3;
+    color: #888;
+}
+
 .form-group {
     margin-bottom: 15px;
     text-align: left;
@@ -1039,6 +1142,25 @@ body.dark-mode .service-opt-btn:hover {
     background: #5c6cff;
     border-color: #5c6cff;
     color: white;
+}
+/* Dark mode for new service option buttons */
+body.dark-mode .service-option-button {
+    background: #1e1e1e;
+    border-color: #333;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    color: #e0e0e0;
+}
+
+body.dark-mode .service-option-button:hover {
+    border-color: #5c6cff;
+}
+
+body.dark-mode .service-option-button .details h3 {
+    color: #e0e0e0;
+}
+
+body.dark-mode .service-option-button .details p {
+    color: #aaa;
 }
 
 /* Compact View Overrides */

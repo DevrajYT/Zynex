@@ -527,30 +527,57 @@ let currentOrder = {
     min: 0,
     max: 0
 };
-let serviceConfigCache = null;
+
+// Hardcoded Service Config for instant loading
+// NOTE: Please adjust these prices/names to match your backend's serviceConfig.js exactly!
+const LOCAL_SERVICE_CONFIG = {
+    instagram: {
+        title: "Instagram",
+        options: [
+            { name: "Followers", price: 0.4, icon: "people-outline", min: 10, max: 10000 },
+            { name: "Likes", price: 0.05, icon: "heart-outline", min: 100, max: 100000 },
+            { name: "Views", price: 0.01, icon: "eye-outline", min: 100, max: 1000000 },
+            { name: "Comments", price: 0.5, icon: "chatbubble-outline", min: 50, max: 50000 },
+            { name: "Reel Repost", price: 0.3, icon: "repeat-outline", min: 10, max: 1000 },
+            { name: "Reel Save", price: 0.1, icon: "bookmark-outline", min: 10, max: 100000 },
+            { name: "Reel Share", price: 0.2, icon: "share-social-outline", min: 10, max: 100000 },
+            { name: "Story Views", price: 0.05, icon: "aperture-outline", min: 100, max: 10000 }
+        ]
+    },
+    youtube: {
+        title: "YouTube",
+        options: [
+            { name: "Subscribers", price: 4.0, icon: "person-add-outline", min: 10, max: 10000 },
+            { name: "Likes", price: 0.2, icon: "thumbs-up-outline", min: 50, max: 10000 },
+            { name: "Views", price: 0.7, icon: "play-circle-outline", min: 100, max: 100000 },
+            { name: "Comment Likes", price: 0.030, icon: "heart-circle-outline", min: 100, max: 100000 }
+        ]
+    },
+    facebook: {
+        title: "Facebook",
+        options: [
+            { name: "Followers", price: 0.4, icon: "people-outline", min: 10, max: 10000 },
+            { name: "Likes", price: 0.1, icon: "thumbs-up-outline", min: 50, max: 100000 },
+            { name: "Video Views", price: 0.04, icon: "videocam-outline", min: 100, max: 100000 }
+        ]
+    },
+    telegram: {
+        title: "Telegram",
+        options: [
+            { name: "Members", price: 0.3, icon: "people-outline", min: 10, max: 100000 },
+            { name: "Views", price: 0.02, icon: "eye-outline", min: 50, max: 100000 },
+            { name: "Post Share", price: 0.02, icon: "share-social-outline", min: 50, max: 100000 },
+            { name: "Comments", price: 0.6, icon: "chatbubbles-outline", min: 50, max: 10000 }
+        ]
+    }
+};
 
 async function fetchServiceConfig() {
-    if (serviceConfigCache) {
-        return serviceConfigCache;
-    }
-    try {
-        const response = await fetch(`${window.BACKEND_URL}/api/services`);
-        if (!response.ok) throw new Error('Could not load services.');
-        serviceConfigCache = await response.json();
-        return serviceConfigCache;
-    } catch (error) {
-        console.error("Failed to fetch service config:", error);
-        showAlert(error.message, "Error");
-        return null;
-    }
+    // Returns the configuration instantly without a network request
+    return LOCAL_SERVICE_CONFIG;
 }
 
 window.openServiceOptions = async function(serviceKey) {
-    if (!window.isUserLoggedIn()) {
-        openPopup('.login-required-popup');
-        return;
-    }
-
     const optionsGrid = document.getElementById('service-options-grid');
     const orderForm = document.getElementById('service-order-form');
     const popupTitle = document.getElementById('service-popup-title');
@@ -558,32 +585,49 @@ window.openServiceOptions = async function(serviceKey) {
     // Reset view
     orderForm.style.display = 'none';
     optionsGrid.style.display = 'grid';
-    optionsGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: #999;">Loading options...</p>';
+    optionsGrid.innerHTML = '<p style="text-align: center; color: #999;">Loading options...</p>';
     openPopup('.service-popup');
 
     const config = await fetchServiceConfig();
-    if (!config || !config[serviceKey]) {
+    const normalizedKey = serviceKey.toLowerCase();
+    if (!config || !config[normalizedKey]) {
         optionsGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: red;">Could not load options for this service.</p>';
         return;
     }
 
-    const serviceData = config[serviceKey];
+    const serviceData = config[normalizedKey];
     popupTitle.innerText = `Select a ${serviceData.title} Service`;
     optionsGrid.innerHTML = '';
+
+    let iconBg = 'rgba(92, 108, 255, 0.1)';
+    let iconColor = '#5c6cff';
+    if (normalizedKey === 'instagram') { iconBg = 'rgba(193, 53, 132, 0.1)'; iconColor = '#C13584'; }
+    else if (normalizedKey === 'youtube') { iconBg = 'rgba(255, 0, 0, 0.1)'; iconColor = '#FF0000'; }
+    else if (normalizedKey === 'facebook') { iconBg = 'rgba(24, 119, 242, 0.1)'; iconColor = '#1877F2'; }
+    else if (normalizedKey === 'telegram') { iconBg = 'rgba(0, 136, 204, 0.1)'; iconColor = '#0088cc'; }
 
     serviceData.options.forEach(opt => {
         if (opt.disabled) return;
         const btn = document.createElement('button');
-        btn.className = 'service-opt-btn';
-        btn.onclick = () => selectServiceOption(serviceKey, opt.name);
-        btn.innerHTML = `<ion-icon name="${opt.icon || 'ellipse-outline'}"></ion-icon><span>${opt.name}</span>`;
+        btn.className = 'service-option-button'; // Replaced 'action-card service-opt-card' and inline styles
+        btn.onclick = () => selectServiceOption(normalizedKey, opt.name);
+        btn.innerHTML = `
+            <div class="icon-wrapper" style="background:${iconBg}; color:${iconColor};">
+                <ion-icon name="${opt.icon || 'ellipse-outline'}"></ion-icon>
+            </div>
+            <div class="details">
+                <h3>${opt.name}</h3>
+                <p>₹${opt.price} / unit • Min: ${opt.min}</p>
+            </div>
+        `;
         optionsGrid.appendChild(btn);
     });
 };
 
 window.selectServiceOption = async function(serviceKey, optionName) {
     const config = await fetchServiceConfig();
-    const serviceData = config[serviceKey];
+    const normalizedKey = serviceKey.toLowerCase();
+    const serviceData = config[normalizedKey];
     const optionData = serviceData.options.find(opt => opt.name === optionName);
 
     if (!optionData) {
@@ -600,8 +644,38 @@ window.selectServiceOption = async function(serviceKey, optionName) {
         max: optionData.max
     };
 
+    // Dynamic Link Label Logic
+    let linkLabel = `Enter ${serviceData.title} Link`;
+    const optLower = optionData.name.toLowerCase();
+    
+    if (normalizedKey === 'instagram') {
+        if (optLower.includes('follower')) linkLabel = 'Profile Link';
+        else if (optLower.includes('story')) linkLabel = 'Story Link';
+        else linkLabel = 'Post/Reel Link';
+    } else if (normalizedKey === 'youtube') {
+        if (optLower.includes('subscriber')) linkLabel = 'Channel Link';
+        else linkLabel = 'Video Link';
+    } else if (normalizedKey === 'facebook') {
+        if (optLower.includes('follower') || optLower.includes('page')) linkLabel = 'Page/Profile Link';
+        else linkLabel = 'Post/Video Link';
+    } else if (normalizedKey === 'telegram') {
+        if (optLower.includes('member')) linkLabel = 'Channel/Group Link';
+        else linkLabel = 'Post Link';
+    }
+
+    // Show/hide public account note based on service
+    const noteEl = document.getElementById('public-account-note');
+    if (noteEl) {
+        if (normalizedKey === 'youtube' || normalizedKey === 'telegram') {
+            noteEl.style.display = 'none';
+        } else {
+            noteEl.style.display = 'flex';
+        }
+    }
+
     // Update UI
-    document.getElementById('label-link').innerText = `Enter ${serviceData.title} Link`;
+    document.getElementById('service-popup-title').innerText = optionData.name;
+    document.getElementById('label-link').innerText = linkLabel;
     document.getElementById('order-limits').innerText = `Min: ${optionData.min}, Max: ${optionData.max}`;
     document.getElementById('order-amount').value = '';
     document.getElementById('order-total').innerText = '0';
@@ -616,7 +690,7 @@ window.selectServiceOption = async function(serviceKey, optionName) {
 window.backToOptions = function() {
     document.getElementById('service-order-form').style.display = 'none';
     document.getElementById('service-options-grid').style.display = 'grid';
-    document.getElementById('service-popup-title').innerText = `Select a ${currentOrder.service} Service`;
+    document.getElementById('service-popup-title').innerText = `Select a ${currentOrder.service || ''} Service`;
     currentOrder = {}; // Clear current order state
 };
 
@@ -632,6 +706,11 @@ window.calculateTotal = function() {
 };
 
 window.submitOrder = function() {
+    if (!window.isUserLoggedIn()) {
+        openPopup('.login-required-popup');
+        return;
+    }
+
     clearInlineErrors();
     const link = document.getElementById('order-link').value.trim();
     const amount = parseInt(document.getElementById('order-amount').value, 10);
