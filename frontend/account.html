@@ -23,6 +23,8 @@
 			<li><a href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
 			<li><a href="services.html"><ion-icon name="cube-outline"></ion-icon>Services</a></li>
 			<li><a href="orders.html"><ion-icon name="notifications-outline"></ion-icon>Orders</a></li>
+			<li><a href="giveaway.html"><ion-icon name="gift-outline"></ion-icon>Giveaway</a></li>
+			<li><a href="reviews.html"><ion-icon name="star-outline"></ion-icon>Reviews</a></li>
 		</ul>
 
 		<div class="section-title">AUTH</div>
@@ -49,8 +51,6 @@
 	</header>
 
 	<main class="content">
-		<!-- preserve header spacing -->
-		<div style="margin-top:88px"></div>
 		<section class="not-logged-in" style="display:none; text-align:center; padding:60px 20px; color:#555;">
 
 			<ion-icon name="lock-closed-outline" style="font-size:52px; margin-bottom:18px; color:#5c6cff;"></ion-icon>
@@ -79,12 +79,11 @@
                         <div class="profile-avatar">
                             <ion-icon id="defaultProfileIcon" name="person-circle-outline"></ion-icon>
                             <img id="profileImage" src="" style="display:none">
-                            <input type="file" id="imageUpload" hidden>
-                            <button class="edit-avatar-btn" onclick="document.getElementById('imageUpload').click()">
-                                <ion-icon name="camera-outline"></ion-icon>
-                            </button>
                         </div>
                     </div>
+
+
+
                     <div class="profile-identity-info">
                         <h2 id="profileName">Username</h2>
                         <p id="profileEmail">user@example.com</p>
@@ -318,6 +317,23 @@
 				<p style="margin-bottom:10px"><strong>4. Privacy</strong><br>We take your privacy seriously and will take all measures to protect your personal information. Any personal information received will only be used to fill your order.</p>
 			</div>
 			<button class="cta" style="width:100%; margin-top:20px" onclick="closePopup('.terms-popup')">I Agree</button>
+		</div>
+	</div>
+
+	<div class="popup review-popup" aria-hidden="true">
+		<div class="popup-content" style="max-width: 400px;">
+			<button class="close-icon" onclick="closePopup('.review-popup')">&times;</button>
+			<h2 style="text-align: center;">Write a Review</h2>
+			<div class="star-rating-input">
+				<ion-icon name="star-outline" data-value="1" onclick="setRating(1)"></ion-icon>
+				<ion-icon name="star-outline" data-value="2" onclick="setRating(2)"></ion-icon>
+				<ion-icon name="star-outline" data-value="3" onclick="setRating(3)"></ion-icon>
+				<ion-icon name="star-outline" data-value="4" onclick="setRating(4)"></ion-icon>
+				<ion-icon name="star-outline" data-value="5" onclick="setRating(5)"></ion-icon>
+			</div>
+			<input type="hidden" id="review-rating-value" value="0">
+			<textarea id="review-text" class="form-input" placeholder="Share your experience..." style="width:100%; height:100px; margin-top:15px; resize: none;"></textarea>
+			<button class="cta" onclick="submitReview()" style="width:100%; margin-top:15px">Submit Review</button>
 		</div>
 	</div>
 

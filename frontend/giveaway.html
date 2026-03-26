@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giveaways — Zynex</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="logo.png">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule defer src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <script src="script.js" defer></script>
+    <script type="module" src="firebase-init.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <aside class="sidebar" aria-label="Sidebar">
+        <div class="brand"><ion-icon name="layers-outline"></ion-icon><a href="index.html">Zynex</a></div>
+
+        <ul class="nav-list">
+            <li><a href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
+            <li><a href="services.html"><ion-icon name="cube-outline"></ion-icon>Services</a></li>
+            <li><a href="orders.html"><ion-icon name="notifications-outline"></ion-icon>Orders</a></li>
+            <li><a class="active" href="giveaway.html"><ion-icon name="gift-outline"></ion-icon>Giveaway</a></li>
+            <li><a href="reviews.html"><ion-icon name="star-outline"></ion-icon>Reviews</a></li>
+        </ul>
+
+        <div class="section-title">AUTH</div>
+        <ul class="nav-list">
+            <li><a href="account.html"><ion-icon name="person-outline"></ion-icon>Profile</a></li>
+        </ul>
+
+        <div id="admin-section-title" class="section-title" style="display:none">ADMIN</div>
+        <ul id="admin-nav-list" class="nav-list" style="display:none">
+            <li><a href="admin.html"><ion-icon name="server-outline"></ion-icon>Server <span id="admin-sidebar-badge" class="nav-badge">0</span></a></li>
+        </ul>
+    </aside>
+
+    <header class="topbar">
+        <div class="left-controls">
+            <button class="hamburger" aria-label="Open menu" onclick="togglePanel()"><ion-icon name="menu-outline"></ion-icon></button>
+            <div id="headerAuthArea"></div>
+        </div>
+        <div class="controls">
+            <button onclick="openPopup('.help-popup')"><ion-icon name="help-circle-outline"></ion-icon>Help</button>
+        </div>
+    </header>
+
+    <main class="content">
+        <div style="margin-top:88px"></div>
+        
+        <div id="giveaway-page-content" style="max-width: 1000px; margin: 0 auto;">
+            <div class="stat-card" style="text-align:center; padding: 50px;">
+                <ion-icon name="sync-outline" class="spin" style="font-size: 32px; color: #5c6cff;"></ion-icon>
+                <p style="color: #999; margin-top: 15px;">Loading giveaway details...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Generic Help Popup -->
+    <div class="popup help-popup" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="popup-content help">
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.help-popup')">&times;</button>
+            <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                    const check = setInterval(() => { if(window.openSupportCenter) { window.openSupportCenter(); clearInterval(check); } }, 100);
+                });
+            </script>
+        </div>
+    </div>
+
+    <!-- Giveaway Entry Popup -->
+    <div class="popup giveaway-entry-popup" aria-hidden="true">
+        <div class="popup-content" style="max-width: 400px; text-align: center;">
+            <button class="close-icon" onclick="closePopup('.giveaway-entry-popup')">&times;</button>
+            <h2 style="margin-bottom: 15px;">🎁 Enter Giveaway</h2>
+            <p style="color: #666; margin-bottom: 15px;">Step 1: Follow <a href="https://instagram.com/smmzynex.in" target="_blank" style="color: #c13584; font-weight: bold;">@smmzynex.in</a> on Instagram</p>
+            <p style="color: #666; margin-bottom: 15px;">Step 2: Enter your Instagram username below so we can verify!</p>
+            <input type="hidden" id="entry-ga-id">
+            <div class="form-group" style="text-align: left;">
+                <label style="font-weight: 600; font-size: 0.9rem; color: #333;">Your Instagram Username</label>
+                <div style="position: relative; margin-top: 5px;">
+                    <ion-icon name="at-outline" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #888; font-size: 1.2rem;"></ion-icon>
+                    <input type="text" id="entry-ig-handle" class="form-input" placeholder="username" style="padding-left: 40px;">
+                </div>
+                <small id="error-entry-handle" class="error-text"></small>
+            </div>
+            <button class="btn-white-primary" style="width: 100%; margin-top: 15px; border-color: #ff416c; color: #ff416c;" onmouseover="this.style.background='#ff416c'; this.style.color='#fff';" onmouseout="this.style.background='#fff'; this.style.color='#ff416c';" onclick="submitGiveawayEntry()">
+                <ion-icon name="gift-outline" style="margin-right:8px;"></ion-icon> Submit Entry
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Auto load the giveaway config when this page opens
+        document.addEventListener('DOMContentLoaded', () => {
+            const check = setInterval(() => { 
+                if (window.loadGiveawayPage) { 
+                    window.loadGiveawayPage(); 
+                    clearInterval(check); 
+                } 
+            }, 100);
+        });
+    </script>
+
+</body>
+</html>

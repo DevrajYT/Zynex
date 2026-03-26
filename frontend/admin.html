@@ -40,6 +40,8 @@
             <li><a href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
             <li><a href="services.html"><ion-icon name="cube-outline"></ion-icon>Services</a></li>
             <li><a href="orders.html"><ion-icon name="notifications-outline"></ion-icon>Orders</a></li>
+            <li><a href="giveaway.html"><ion-icon name="gift-outline"></ion-icon>Giveaway</a></li>
+            <li><a href="reviews.html"><ion-icon name="star-outline"></ion-icon>Reviews</a></li>
         </ul>
 
         <div class="section-title">AUTH</div>
@@ -69,29 +71,44 @@
 
         <div class="dashboard-grid" style="margin-bottom: 30px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
             <div class="stat-card">
-                <h4>Total Revenue</h4>
-                <p class="stat-value" id="admin-total-revenue">₹0.00</p>
+                <div class="stat-card-header">
+                    <h4>Total Revenue</h4>
+                    <div class="stat-card-icon blue"><ion-icon name="wallet-outline"></ion-icon></div>
+                </div>
+                <p class="stat-value" id="admin-total-revenue" style="margin-top:15px;">₹0.00</p>
             </div>
             <div class="stat-card">
-                <h4>Total Profit</h4>
-                <p class="stat-value" id="admin-total-profit" style="color:#00c853">₹0.00</p>
+                <div class="stat-card-header">
+                    <h4>Total Profit</h4>
+                    <div class="stat-card-icon green"><ion-icon name="trending-up-outline"></ion-icon></div>
+                </div>
+                <p class="stat-value" id="admin-total-profit" style="color:#00c853; margin-top:15px;">₹0.00</p>
             </div>
             <div class="stat-card">
-                <h4>Total Orders</h4>
-                <p class="stat-value" id="admin-total-orders">0</p>
+                <div class="stat-card-header">
+                    <h4>Total Orders</h4>
+                    <div class="stat-card-icon purple"><ion-icon name="cart-outline"></ion-icon></div>
+                </div>
+                <p class="stat-value" id="admin-total-orders" style="margin-top:15px;">0</p>
             </div>
             <div class="stat-card">
-                <h4>Pending Actions</h4>
-                <p class="stat-value" id="admin-pending-orders" style="color:#ff9800">0</p>
+                <div class="stat-card-header">
+                    <h4>Pending Actions</h4>
+                    <div class="stat-card-icon orange"><ion-icon name="alert-circle-outline"></ion-icon></div>
+                </div>
+                <p class="stat-value" id="admin-pending-orders" style="color:#ff9800; margin-top:15px;">0</p>
             </div>
         </div>
 
         <!-- Admin Tabs -->
-        <div class="admin-tabs">
-            <button class="admin-tab-btn active" onclick="switchAdminTab('orders')">Orders <span id="admin-orders-badge" class="tab-badge"></span></button>
-            <button class="admin-tab-btn" onclick="switchAdminTab('tickets')">Tickets <span id="admin-tickets-badge" class="tab-badge"></span></button>
-            <button class="admin-tab-btn" onclick="switchAdminTab('users')">Users</button>
-            <button class="admin-tab-btn" onclick="switchAdminTab('settings')">Site Settings</button>
+        <div class="admin-tabs-wrapper" style="margin-bottom:20px; overflow-x:auto;">
+            <div class="admin-tabs">
+                <button class="admin-tab-btn active" onclick="switchAdminTab('orders')"><ion-icon name="list-outline"></ion-icon> Orders <span id="admin-orders-badge" class="tab-badge"></span></button>
+                <button class="admin-tab-btn" onclick="switchAdminTab('tickets')"><ion-icon name="chatbubbles-outline"></ion-icon> Tickets <span id="admin-tickets-badge" class="tab-badge"></span></button>
+                <button class="admin-tab-btn" onclick="switchAdminTab('users')"><ion-icon name="people-outline"></ion-icon> Users</button>
+                <button class="admin-tab-btn" onclick="switchAdminTab('giveaway')"><ion-icon name="gift-outline"></ion-icon> Giveaway</button>
+                <button class="admin-tab-btn" onclick="switchAdminTab('settings')"><ion-icon name="settings-outline"></ion-icon> Settings</button>
+            </div>
         </div>
 
         <!-- ORDERS TAB -->
@@ -180,6 +197,18 @@
             </div>
         </div>
 
+        <!-- GIVEAWAY TAB -->
+        <div id="admin-tab-giveaway" class="admin-tab-content" style="display:none;">
+            <div class="stat-card" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <h3 style="margin:0;">Giveaways Management</h3>
+                <button class="cta" onclick="openCreateGiveawayPopup()"><ion-icon name="add-outline"></ion-icon> New Giveaway</button>
+            </div>
+            
+            <div id="admin-giveaways-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                <!-- Loaded via JS -->
+            </div>
+        </div>
+
         <!-- SETTINGS TAB -->
         <div id="admin-tab-settings" class="admin-tab-content" style="display:none;">
             <div class="stat-card">
@@ -229,6 +258,68 @@
                 <button onclick="deleteAdminTicket()" style="background:#ffebee; color:#c62828; border:none; padding:8px 15px; border-radius:6px; cursor:pointer; font-size:0.85rem"><ion-icon name="trash-outline" style="vertical-align:middle; margin-right:5px"></ion-icon> Delete</button>
                 <button id="admin-close-ticket-btn" style="background:#eee; color:#333; border:none; padding:8px 15px; border-radius:6px; cursor:pointer; font-size:0.85rem" onclick="toggleTicketStatus()">Close Ticket</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Create Giveaway Popup -->
+    <div class="popup create-giveaway-popup" aria-hidden="true">
+        <div class="popup-content" style="max-width: 500px; text-align: left;">
+            <button class="close-icon" onclick="closePopup('.create-giveaway-popup')" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+            <h2 id="cg-modal-title" style="margin-bottom:15px;">Create Giveaway</h2>
+            <input type="hidden" id="cg-id">
+            <div class="form-group"><label>Title</label><input type="text" id="cg-title" class="form-input"></div>
+            <div class="form-group"><label>Prize</label><input type="text" id="cg-prize" class="form-input"></div>
+            <div class="form-group"><label>Prize Image URL (Optional)</label><input type="text" id="cg-image" class="form-input" placeholder="https://example.com/image.png"></div>
+            <div class="form-group"><label>Description</label><textarea id="cg-desc" class="form-input" rows="2"></textarea></div>
+            <div class="form-group"><label>Rules (One per line)</label><textarea id="cg-rules" class="form-input" rows="3"></textarea></div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group"><label>End Date & Time</label><input type="datetime-local" id="cg-end" class="form-input"></div>
+                <div class="form-group"><label>Number of Winners</label><input type="number" id="cg-winners-count" class="form-input" value="1" min="1"></div>
+            </div>
+            <div class="form-group">
+                <label style="display:flex; align-items:center; gap:10px; cursor:pointer;"><input type="checkbox" id="cg-active" style="width:18px; height:18px; accent-color:#5c6cff;" checked> <strong>Giveaway is Active</strong></label>
+            </div>
+            <button class="cta" onclick="saveGiveaway()" style="width: 100%; margin-top:10px;">Save Giveaway</button>
+        </div>
+    </div>
+
+    <!-- Manage Giveaway Popup -->
+    <div class="popup manage-giveaway-popup" aria-hidden="true">
+        <div class="popup-content" style="max-width: 600px; text-align: left; max-height: 90vh; overflow-y: auto;">
+            <button class="close-icon" onclick="closePopup('.manage-giveaway-popup')" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+            <h2 id="mg-title" style="margin-bottom:15px;">Manage Giveaway</h2>
+            <div class="admin-tabs" style="margin-bottom:15px">
+                <button class="admin-tab-btn active" id="btn-mg-details" onclick="switchMgTab('details')">Details</button>
+                <button class="admin-tab-btn" id="btn-mg-entries" onclick="switchMgTab('entries')">Entries</button>
+                <button class="admin-tab-btn" id="btn-mg-winner" onclick="switchMgTab('winner')">Winner</button>
+            </div>
+            <div id="mg-tab-details">
+                <button class="cta" style="margin-bottom:10px; width:100%;" onclick="openEditGiveaway(currentMgId)">Edit Details</button>
+                <button class="cta" style="background:#ff4d4f; width:100%;" onclick="deleteGiveaway(currentMgId)">Delete Giveaway</button>
+            </div>
+            <div id="mg-tab-entries" style="display:none">
+                <p style="margin-bottom:10px;">Total Entries: <strong id="mg-entries-count">0</strong></p>
+                <div class="table-responsive" style="max-height: 300px;"><table class="admin-table"><thead><tr><th>User</th><th>IG Handle</th><th>Date</th></tr></thead><tbody id="mg-entries-body"></tbody></table></div>
+            </div>
+            <div id="mg-tab-winner" style="display:none"><div id="mg-winner-content"></div></div>
+        </div>
+    </div>
+
+    <div class="popup review-popup" aria-hidden="true">
+        <div class="popup-content" style="max-width: 400px;">
+            <button class="close-icon" onclick="closePopup('.review-popup')">&times;</button>
+            <h2 style="text-align: center;">Write a Review</h2>
+            <div class="star-rating-input">
+                <ion-icon name="star-outline" data-value="1" onclick="setRating(1)"></ion-icon>
+                <ion-icon name="star-outline" data-value="2" onclick="setRating(2)"></ion-icon>
+                <ion-icon name="star-outline" data-value="3" onclick="setRating(3)"></ion-icon>
+                <ion-icon name="star-outline" data-value="4" onclick="setRating(4)"></ion-icon>
+                <ion-icon name="star-outline" data-value="5" onclick="setRating(5)"></ion-icon>
+            </div>
+            <input type="hidden" id="review-rating-value" value="0">
+            <textarea id="review-text" class="form-input" placeholder="Share your experience..." style="width:100%; height:100px; margin-top:15px; resize: none;"></textarea>
+            <button class="cta" onclick="submitReview()" style="width:100%; margin-top:15px">Submit Review</button>
         </div>
     </div>
 

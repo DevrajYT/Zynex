@@ -34,7 +34,8 @@
             <li><a class="active" href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
             <li><a href="services.html"><ion-icon name="cube-outline"></ion-icon>Services</a></li>
             <li><a href="orders.html"><ion-icon name="notifications-outline"></ion-icon>Orders</a></li>
-            <li><a href="#" onclick="openReviewPopup(); return false;"><ion-icon name="star-outline"></ion-icon>Rate Us</a></li>
+            <li><a href="giveaway.html"><ion-icon name="gift-outline"></ion-icon>Giveaway</a></li>
+            <li><a href="reviews.html"><ion-icon name="star-outline"></ion-icon>Reviews</a></li>
         </ul>
 
         <div class="section-title">AUTH</div>
@@ -70,6 +71,27 @@
     <main class="content">
         <div style="margin-top:88px"></div>
     
+        <!-- Service Showcase Slider -->
+        <div class="service-showcase-container">
+            <div class="service-showcase-card">
+                <!-- Items are duplicated for a seamless loop -->
+                <div class="service-showcase-item" onclick="openServiceOptions('instagram')"><ion-icon name="logo-instagram" style="color: #C13584;"></ion-icon><span>Instagram Followers</span></div>
+                <div class="service-showcase-item" onclick="openServiceOptions('youtube')"><ion-icon name="logo-youtube" style="color: #FF0000;"></ion-icon><span>YouTube Views</span></div>
+                <div class="service-showcase-item" onclick="openServiceOptions('facebook')"><ion-icon name="logo-facebook" style="color: #1877F2;"></ion-icon><span>Facebook Likes</span></div>
+                <div class="service-showcase-item" onclick="openServiceOptions('telegram')"><ion-icon name="paper-plane" style="color: #0088cc;"></ion-icon><span>Telegram Members</span></div>
+                <div class="service-showcase-item" onclick="openServiceOptions('instagram')"><ion-icon name="logo-instagram" style="color: #C13584;"></ion-icon><span>Instagram Likes</span></div>
+                <div class="service-showcase-item" onclick="openServiceOptions('youtube')"><ion-icon name="logo-youtube" style="color: #FF0000;"></ion-icon><span>YouTube Subscribers</span></div>
+
+                <!-- Duplicate Set -->
+                <div class="service-showcase-item" onclick="openServiceOptions('instagram')"><ion-icon name="logo-instagram" style="color: #C13584;"></ion-icon><span>Instagram Followers</span></div>
+                <div class="service-showcase-item" onclick="openServiceOptions('youtube')"><ion-icon name="logo-youtube" style="color: #FF0000;"></ion-icon><span>YouTube Views</span></div>
+                <div class="service-showcase-item" onclick="openServiceOptions('facebook')"><ion-icon name="logo-facebook" style="color: #1877F2;"></ion-icon><span>Facebook Likes</span></div>
+                <div class="service-showcase-item" onclick="openServiceOptions('telegram')"><ion-icon name="paper-plane" style="color: #0088cc;"></ion-icon><span>Telegram Members</span></div>
+                <div class="service-showcase-item" onclick="openServiceOptions('instagram')"><ion-icon name="logo-instagram" style="color: #C13584;"></ion-icon><span>Instagram Likes</span></div>
+                <div class="service-showcase-item" onclick="openServiceOptions('youtube')"><ion-icon name="logo-youtube" style="color: #FF0000;"></ion-icon><span>YouTube Subscribers</span></div>
+            </div>
+        </div>
+
         <!-- Announcement Bar (Dynamic) -->
         <div id="announcement-container"></div>
 
@@ -191,6 +213,131 @@
         </div>
     </div>
 
+    <!-- Service Selection & Order Popup (Copied from services.html) -->
+    <div class="popup service-popup" role="dialog" aria-hidden="true">
+        <div class="popup-content service-content">
+            <button class="close-icon" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer; z-index:10;" onclick="closePopup('.service-popup')">&times;</button>
+            <h2 id="service-popup-title">Select Option</h2>
+            
+            <!-- Step 1: Options Grid -->
+            <div id="service-options-grid" class="service-options-grid">
+                <!-- Options injected via JS -->
+            </div>
+
+            <!-- Step 2: Order Form -->
+            <div id="service-order-form" style="display:none; margin-top:20px;">
+                <div class="service-form-wrapper">
+                    <div class="form-group" style="margin-bottom:15px;">
+                        <label for="order-link" id="label-link" style="font-weight:600; color:#333; font-size:0.9rem; margin-bottom:8px; display:block;">Link</label>
+                        <div style="position:relative;">
+                            <ion-icon name="link-outline" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#888; font-size:1.2rem;"></ion-icon>
+                            <input type="url" id="order-link" class="form-input" placeholder="https://..." style="padding-left:40px; height:45px; border-radius:10px;">
+                        </div>
+                        <small id="error-link" class="error-text" style="color:#ff4d4f; display:none; margin-top:6px; font-size:0.85rem;"></small>
+                    </div>
+
+                    <div style="background: #fff8e1; border: 1px solid #ffe082; color: #f57c00; padding: 10px 12px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                        <ion-icon name="warning-outline" style="font-size: 1.2rem; flex-shrink: 0;"></ion-icon> <strong>Note:</strong> Your account must be public. Private accounts cannot be processed.
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="order-amount" style="font-weight:600; color:#333; font-size:0.9rem; margin-bottom:8px; display:block;">Amount</label>
+                        <div style="position:relative;">
+                            <ion-icon name="layers-outline" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#888; font-size:1.2rem;"></ion-icon>
+                            <input type="number" id="order-amount" class="form-input" placeholder="1000" oninput="calculateTotal()" style="padding-left:40px; height:45px; border-radius:10px;" required>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-top:6px;">
+                            <small id="order-limits" style="color:#888; font-size:0.8rem;"></small>
+                            <small id="error-amount" class="error-text" style="color:#ff4d4f; display:none; font-size:0.85rem; text-align:right;"></small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="service-total-card">
+                    <span style="color: #4a59e0; font-weight: 600; font-size: 1.05rem;">Total Cost:</span>
+                    <span style="color: #4a59e0; font-weight: 700; font-size: 1.4rem;">₹<span id="order-total">0</span></span>
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                    <button class="btn-white-primary" style="width:100%" onclick="submitOrder()"><ion-icon name="card-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Proceed to Payment</button>
+                    <button class="btn-white-secondary" style="width:100%" onclick="backToOptions()"><ion-icon name="arrow-back-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Back to Options</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment & UTR Verification Popup (Copied from services.html) -->
+    <div class="popup payment-popup" role="dialog" aria-hidden="true">
+        <div class="popup-content payment-content" style="max-width:420px; padding: 25px 20px; width: 95%;">
+            <button class="close-icon" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer; z-index:10; color:#888;" onclick="closePopup('.payment-popup')">&times;</button>
+            <h2 style="text-align:center; font-size:1.6rem; margin-bottom:5px; color:#333;">Complete Payment</h2>
+            <p style="text-align:center; color:#666; font-size:0.9rem; margin-bottom:25px;">Scan the QR code below to pay</p>
+            
+            <div class="payment-qr-card">
+                <div class="payment-qr-badge">
+                    <span id="pay-amount">₹0.00</span>
+                </div>
+                <img src="qr.jpeg" alt="Payment QR Code" style="width:180px; height:180px; margin:10px auto; display:block; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,0.06);">
+                <div style="display:inline-flex; align-items:center; gap:8px; background:#f5f7fa; padding:8px 16px; border-radius:20px; font-size:0.9rem; color:#555; font-weight:500; margin-top:10px;">
+                    <ion-icon name="wallet-outline" style="color:#5c6cff"></ion-icon> dev4947@ptaxis
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom:25px;">
+                <label for="utr-id" style="font-weight:600; color:#333; font-size:0.9rem; margin-bottom:8px; display:block;">Transaction / UTR ID</label>
+                <div style="position:relative;">
+                    <ion-icon name="shield-checkmark-outline" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#00c853; font-size:1.2rem;"></ion-icon>
+                    <input type="text" id="utr-id" class="form-input" placeholder="Enter 12-digit UTR" style="padding-left:40px; height:48px; border-radius:10px; border:1px solid #ddd; font-family:monospace; font-size:1rem; letter-spacing:1px;">
+                </div>
+                <small id="error-utr" class="error-text" style="color:#ff4d4f; display:none; margin-top:6px; font-size:0.85rem; text-align:center;"></small>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <button id="btn-verify-payment" class="btn-white-success" style="width:100%" onclick="processPayment()"><ion-icon name="checkmark-circle-outline" style="margin-right:8px; font-size:1.3rem;"></ion-icon> Verify & Submit Order</button>
+                <div style="display:flex; gap:12px;">
+                    <button class="btn-white-secondary" style="flex:1" onclick="backToOrder()"><ion-icon name="arrow-back-outline" style="margin-right:5px;"></ion-icon> Back</button>
+                    <button class="btn-white-info" style="flex:1" onclick="openPopup('.tutorial-popup')"><ion-icon name="help-circle-outline" style="margin-right:5px;"></ion-icon> How to Pay?</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Required Popup (Copied from services.html) -->
+    <div class="popup login-required-popup" role="dialog" aria-hidden="true">
+        <div class="popup-content" style="max-width:350px; text-align:center">
+            <button class="close-icon" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer;" onclick="closePopup('.login-required-popup')">&times;</button>
+            <h2 style="margin-bottom:15px">Login Required</h2>
+            <p style="color:#666; margin-bottom:25px">Please log in to proceed with your order.</p>
+            <button class="btn-white-primary" style="width:100%" onclick="window.location.href='account.html?login=true'"><ion-icon name="log-in-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Login to Continue</button>
+        </div>
+    </div>
+
+    <!-- Payment Tutorial Popup (Copied from services.html) -->
+    <div class="popup tutorial-popup" role="dialog" aria-hidden="true">
+        <div class="popup-content" style="max-width:800px; width:90%; text-align:left; position:relative; max-height: 90vh; overflow-y: auto;">
+            <button class="close-icon" style="position:sticky; top:15px; float:right; background:none; border:none; font-size:1.5rem; cursor:pointer; z-index:10;" onclick="closePopup('.tutorial-popup')">&times;</button>
+            <h2 style="text-align:center; margin-bottom:20px">Payment Steps</h2>
+            
+            <div style="display:flex; gap:30px; flex-wrap:wrap; align-items:flex-start;">
+                <div style="flex:1; min-width:280px;">
+                    <ol style="margin-left:20px; line-height:1.8; color:#555; font-size:0.95rem">
+                        <li>Open your UPI App (GPay, PhonePe, Paytm, etc).</li>
+                        <li>Scan the <strong>QR Code</strong> shown on the payment screen.</li>
+                        <li>Pay the exact amount displayed.</li>
+                        <li>After payment, find the <strong>12-digit UTR/Transaction ID</strong> in your app.</li>
+                        <li>Paste the UTR ID in the input box.</li>
+                        <li>Click <strong>Verify & Submit</strong> to place your order.</li>
+                    </ol>
+                </div>
+                <div style="flex:1; min-width:280px; text-align:center;">
+                    <p style="font-size:0.85rem; color:#666; margin-bottom:5px;">Example: Finding UTR in Paytm</p>
+                    <img src="utr.jpeg" alt="UTR Example" style="max-width:250px; height:auto; border-radius:8px; border:1px solid #ddd;">
+                </div>
+            </div>
+            <div style="margin-top:25px; text-align:center">
+                <button class="btn-white-primary" style="width:100%; max-width:300px;" onclick="closePopup('.tutorial-popup')"><ion-icon name="thumbs-up-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> I Understand</button>
+            </div>
+        </div>
+    </div>
+
     <div class="popup review-popup" aria-hidden="true">
         <div class="popup-content" style="max-width: 400px;">
             <button class="close-icon" onclick="closePopup('.review-popup')">&times;</button>
@@ -205,6 +352,27 @@
             <input type="hidden" id="review-rating-value" value="0">
             <textarea id="review-text" class="form-input" placeholder="Share your experience..." style="width:100%; height:100px; margin-top:15px; resize: none;"></textarea>
             <button class="cta" onclick="submitReview()" style="width:100%; margin-top:15px">Submit Review</button>
+        </div>
+    </div>
+
+    <!-- Giveaway Popup -->
+    <div class="popup giveaway-popup" aria-hidden="true">
+        <div class="popup-content" style="max-width: 400px; text-align: center;">
+            <button class="close-icon" onclick="closePopup('.giveaway-popup')">&times;</button>
+            <h2 style="margin-bottom: 15px;">🎁 Enter Giveaway</h2>
+            <p style="color: #666; margin-bottom: 15px;">Step 1: Follow <a href="https://instagram.com/smmzynex.in" target="_blank" style="color: #c13584; font-weight: bold;">@smmzynex.in</a> on Instagram</p>
+            <p style="color: #666; margin-bottom: 15px;">Step 2: Enter your Instagram username below so we can verify!</p>
+            <div class="form-group" style="text-align: left;">
+                <label style="font-weight: 600; font-size: 0.9rem; color: #333;">Your Instagram Username</label>
+                <div style="position: relative; margin-top: 5px;">
+                    <ion-icon name="at-outline" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #888; font-size: 1.2rem;"></ion-icon>
+                    <input type="text" id="giveaway-ig-handle" class="form-input" placeholder="username" style="padding-left: 40px;">
+                </div>
+                <small id="error-giveaway-handle" class="error-text"></small>
+            </div>
+            <button class="btn-white-primary" style="width: 100%; margin-top: 15px; border-color: #ff416c; color: #ff416c;" onmouseover="this.style.background='#ff416c'; this.style.color='#fff';" onmouseout="this.style.background='#fff'; this.style.color='#ff416c';" onclick="submitGiveawayEntry()">
+                <ion-icon name="gift-outline" style="margin-right:8px;"></ion-icon> Submit Entry
+            </button>
         </div>
     </div>
 

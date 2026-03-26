@@ -100,6 +100,16 @@ window.clearInlineErrors = function() {
     document.querySelectorAll('.error-text').forEach(el => el.style.display = 'none');
 };
 
+window.openGiveawayPopup = function(giveawayId) {
+    if (window.isUserLoggedIn && !window.isUserLoggedIn()) {
+        window.showAlert('Please log in or register to enter the giveaway!', 'Login Required');
+        return;
+    }
+    const idField = document.getElementById('entry-ga-id');
+    if(idField) idField.value = giveawayId;
+    openPopup('.giveaway-entry-popup');
+}
+
 // ================= CUSTOM POPUP SYSTEM =================
 // Injects generic popup HTML into every page automatically
 document.addEventListener('DOMContentLoaded', () => {

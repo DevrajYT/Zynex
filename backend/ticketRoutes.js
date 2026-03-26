@@ -42,7 +42,11 @@ router.post('/tickets', async (req, res) => {
         return res.status(400).json({ msg: 'Subject and message are required.' });
     }
 
+    const timestamp = Date.now();
     const newTicketRef = db.ref('tickets').push();
+    const repliesRef = db.ref(`tickets/${newTicketRef.key}/replies`);
+    const newReplyRef = repliesRef.push();
+
     const ticketData = {
         id: newTicketRef.key,
         userId: uid,
@@ -51,9 +55,9 @@ router.post('/tickets', async (req, res) => {
         subject,
         status: 'open',
         orderId: orderId || null,
-        timestamp: Date.now(),
+        timestamp: timestamp,
         replies: {
-            [Date.now()]: { sender: 'user', message, timestamp: Date.now() }
+            [newReplyRef.key]: { sender: 'user', message, timestamp: timestamp }
         }
     };
 

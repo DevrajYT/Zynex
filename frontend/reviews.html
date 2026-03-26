@@ -4,9 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Orders - Zynex Social Media Services</title>
-    <meta name="description" content="Track and manage your Zynex social media growth orders.">
-    <meta name="robots" content="noindex, nofollow">
+    <title>Customer Reviews — Zynex</title>
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" href="logo.png">
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
@@ -24,9 +22,9 @@
         <ul class="nav-list">
             <li><a href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
             <li><a href="services.html"><ion-icon name="cube-outline"></ion-icon>Services</a></li>
-            <li><a class="active" href="orders.html"><ion-icon name="notifications-outline"></ion-icon>Orders</a></li>
+            <li><a href="orders.html"><ion-icon name="notifications-outline"></ion-icon>Orders</a></li>
             <li><a href="giveaway.html"><ion-icon name="gift-outline"></ion-icon>Giveaway</a></li>
-            <li><a href="reviews.html"><ion-icon name="star-outline"></ion-icon>Reviews</a></li>
+            <li><a class="active" href="reviews.html"><ion-icon name="star-outline"></ion-icon>Reviews</a></li>
         </ul>
 
         <div class="section-title">AUTH</div>
@@ -53,66 +51,36 @@
     <main class="content">
         <div style="margin-top:88px"></div>
         
-        <!-- Logged In View -->
-        <div id="orders-content" style="display:none;">
-            <h2 style="margin-bottom:20px;">Order History</h2>
-            
-            <div class="orders-overview" style="overflow-x:auto;">
-                <table class="transaction-table" id="full-orders-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Service</th>
-                            <th>Link</th>
-                            <th>Quantity</th>
-                            <th>Total</th>
-                            <th>Status</th>
-                            <th>Date</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody id="orders-table-body">
-                        <!-- JS Injected -->
-                    </tbody>
-                </table>
-                
-                <div id="no-orders-msg" style="text-align:center; padding:50px; color:#888; display:none;">
-                    <ion-icon name="receipt-outline" style="font-size:48px; opacity:0.5; margin-bottom:10px;"></ion-icon>
-                    <p>No orders found.</p>
-                    <button class="cta" onclick="window.location.href='services.html'" style="margin-top:15px; background:#eee; color:#333;">Place Order</button>
+        <div class="reviews-header-banner">
+            <div class="reviews-title-area">
+                <h2>Customer Reviews</h2>
+                <p>See what our users have to say about Zynex.</p>
+                <button class="cta" onclick="openReviewPopup()" style="margin-top: 15px;"><ion-icon name="create-outline"></ion-icon> Write a Review</button>
+            </div>
+            <div class="reviews-summary-card">
+                <div class="rating-number" id="avg-rating-number">--</div>
+                <div class="star-rating-display" id="avg-rating-stars">
+                    <ion-icon name="star-outline"></ion-icon>
+                    <ion-icon name="star-outline"></ion-icon>
+                    <ion-icon name="star-outline"></ion-icon>
+                    <ion-icon name="star-outline"></ion-icon>
+                    <ion-icon name="star-outline"></ion-icon>
                 </div>
+                <div class="total-reviews" id="total-reviews-count">Loading reviews...</div>
             </div>
         </div>
-
-        <!-- Logged Out View -->
-        <div id="logged-out-orders" style="text-align:center; padding:60px 20px; display:none;">
-            <ion-icon name="lock-closed-outline" style="font-size:52px; margin-bottom:18px; color:#5c6cff;"></ion-icon>
-            <h2>Please sign in to view your orders</h2>
-            <button class="cta" onclick="window.location.href='account.html'" style="margin-top:20px;">Go to Login</button>
+        
+        <!-- Reviews Grid Container -->
+        <div id="all-reviews-grid" class="reviews-grid" style="max-width: 1000px; margin: 0 auto;">
+            <p style="text-align:center; width:100%; color:#999; grid-column: 1 / -1;">Loading reviews...</p>
         </div>
     </main>
-
-    <!-- Order Details Popup -->
-    <div class="popup order-details-popup" role="dialog" aria-hidden="true">
-        <div class="popup-content" style="max-width:500px; text-align:left; width:90%;">
-            <button class="close-icon" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer;" onclick="closePopup('.order-details-popup')">&times;</button>
-            <h2 style="margin-bottom:20px; text-align:center;">Order Status</h2>
-            <div id="order-details-content">
-                <!-- Content injected via JS -->
-            </div>
-            <div style="margin-top:25px; text-align:center">
-                <button class="cta" style="width:100%" onclick="closePopup('.order-details-popup')">Close</button>
-            </div>
-        </div>
-    </div>
 
     <div class="popup help-popup" role="dialog" aria-modal="true" aria-hidden="true">
         <div class="popup-content help">
             <button class="close-icon" aria-label="Close" onclick="closePopup('.help-popup')">&times;</button>
-            <!-- Content injected via JS openSupportCenter() -->
             <script>
                 document.addEventListener('DOMContentLoaded', () => {
-                    // Wait for script.js/firebase-init to load
                     const check = setInterval(() => { if(window.openSupportCenter) { window.openSupportCenter(); clearInterval(check); } }, 100);
                 });
             </script>
@@ -136,6 +104,10 @@
         </div>
     </div>
 
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const check = setInterval(() => { if (window.loadAllReviews) { window.loadAllReviews(); clearInterval(check); } }, 100);
+        });
+    </script>
 </body>
-
 </html>

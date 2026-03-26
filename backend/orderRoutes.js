@@ -63,6 +63,30 @@ router.post('/orders', verifyFirebaseToken, async (req, res) => {
         return res.status(400).json({ msg: `Amount must be between ${optionData.min} and ${optionData.max}.` });
     }
 
+    // --- UTR Uniqueness Check ---
+    const usersRef = db.ref('users');
+    const snapshot = await usersRef.once('value');
+    let utrExists = false;
+    if (snapshot.exists()) {
+        snapshot.forEach(userSnapshot => {
+            const orders = userSnapshot.child('orders').val();
+            if (orders) {
+                for (const orderId in orders) {
+                    // Check if UTR matches and the order wasn't cancelled (cancelled orders can have their UTR reused)
+                    if (orders[orderId].utr === utr && orders[orderId].status !== 'cancelled') {
+                        utrExists = true;
+                        return true; // break from forEach
+                    }
+                }
+            }
+            if (utrExists) return true; // break from outer forEach
+        });
+    }
+
+    if (utrExists) {
+        return res.status(400).json({ msg: 'This UTR ID has already been used for a valid order.' });
+    }
+
     const totalPrice = Math.ceil(numAmount * optionData.price);
 
     // --- Create Order Object ---

@@ -29,7 +29,8 @@ const firebaseConfig = {
 };
 
 // --- CONFIGURATION ---
-window.BACKEND_URL = "https://zynex-backend.onrender.com"; // Made global for services.html
+// window.BACKEND_URL = "http://localhost:10000"; // Local Testing
+window.BACKEND_URL = "https://zynex-backend.onrender.com"; // Production
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -96,8 +97,7 @@ window.registerUser = function () {
 
                 showAlert("Registration successful!", "Welcome");
                 closeRegister();
-                // Reload to ensure displayName is propagated
-                setTimeout(() => window.location.reload(), 1000);
+            // No longer need to reload; onAuthStateChanged will handle the UI update.
             });
         })
         .catch((error) => {
@@ -147,7 +147,7 @@ onAuthStateChanged(auth, (user) => {
             headerAuth.innerHTML = `
       <div class="header-user" onclick="window.location.href='account.html'">
           <ion-icon name="person-outline"></ion-icon>
-          <span>${username}</span>
+          <span>${sanitize(username)}</span>
       </div>`;
         }
         if (dashboardContent) dashboardContent.style.display = 'block';
@@ -158,15 +158,23 @@ onAuthStateChanged(auth, (user) => {
         if (loggedOutOrders) loggedOutOrders.style.display = 'none';
 
         // --- Admin Check ---
-        const admins = ["devraj85271@gmail.com", "kansh8042@gmail.com"];
-        if (admins.includes(user.email)) {
-            if(adminSectionTitle) adminSectionTitle.style.display = "block";
-            if(adminNavList) adminNavList.style.display = "flex";
-            setupAdminRealtimeListeners(); // Start listening for red dots
-        } else {
-            if(adminSectionTitle) adminSectionTitle.style.display = "none";
-            if(adminNavList) adminNavList.style.display = "none";
-        }
+        // IMPORTANT: Rely on custom claims from the ID token, not a hardcoded list.
+        user.getIdTokenResult().then((idTokenResult) => {
+            if (idTokenResult.claims.admin) {
+                if(adminSectionTitle) adminSectionTitle.style.display = "block";
+                if(adminNavList) adminNavList.style.display = "flex";
+                setupAdminRealtimeListeners(); // Start listening for red dots
+
+                // --- Load Admin Dashboard if on admin page ---
+                if (document.getElementById('admin-orders-body')) {
+                    loadAdminDashboard(user);
+                }
+            } else {
+                if(adminSectionTitle) adminSectionTitle.style.display = "none";
+                if(adminNavList) adminNavList.style.display = "none";
+            }
+        });
+
 
         // --- Fetch Announcement ---
         get(ref(database, 'system/announcement')).then((snap) => {
@@ -178,11 +186,6 @@ onAuthStateChanged(auth, (user) => {
                     </div>`;
             }
         });
-
-        // --- Load Admin Dashboard if on admin page ---
-        if (document.getElementById('admin-orders-body')) {
-            loadAdminDashboard(user);
-        }
 
         // --- Setup User Notifications ---
         setupUserNotifications(user);
@@ -196,7 +199,8 @@ onAuthStateChanged(auth, (user) => {
                 window.userOrders = orders; // Store orders for popup access
 
                 // == New Logic: Review prompt on Orders Page Load ==
-                if (onOrdersPage) {
+                const isOrdersPage = window.location.pathname.includes('orders.html');
+                if (isOrdersPage) {
                     const promptedOrdersKey = `zynex_review_prompted_orders_${user.uid}`;
                     const promptedOrders = JSON.parse(localStorage.getItem(promptedOrdersKey) || '[]');
 
@@ -240,11 +244,15 @@ onAuthStateChanged(auth, (user) => {
                 if (dashboardSpentEl) dashboardSpentEl.innerText = `₹${totalSpent.toFixed(2)}`;
 
                 // == Update Account Page ==
-                if (data.photoURL) {
-                    const imgEl = document.getElementById("profileImage");
-                    const iconEl = document.getElementById("defaultProfileIcon");
-                    if (imgEl) { imgEl.src = data.photoURL; imgEl.style.display = "block"; }
+                const imgEl = document.getElementById("profileImage");
+                const iconEl = document.getElementById("defaultProfileIcon");
+                
+                if (user.photoURL) {
+                    if (imgEl) { imgEl.src = user.photoURL; imgEl.style.display = "block"; }
                     if (iconEl) iconEl.style.display = "none";
+                } else {
+                    if (imgEl) { imgEl.style.display = "none"; }
+                    if (iconEl) iconEl.style.display = "block";
                 }
                 const profileNameEl = document.getElementById("profileName");
                 if (profileNameEl) profileNameEl.innerText = sanitize(user.displayName || data.username);
@@ -368,6 +376,13 @@ onAuthStateChanged(auth, (user) => {
             window.location.href = 'account.html';
         }
     }
+    
+    // Refresh Giveaway Page state dynamically on login/logout
+    if (window.location.pathname.includes('giveaway.html') && window.loadGiveawayPage) {
+        window.loadGiveawayPage();
+    }
+    
+    checkGiveawayWinners(user);
 });
 
 
@@ -398,69 +413,6 @@ window.editUsername = function () {
     });
 };
 
-
-// Change Profile Image (Preview Only)
-document.getElementById("imageUpload")?.addEventListener("change", function (evt) {
-    const file = evt.target.files[0];
-    if (file) uploadProfileImage(file);
-});
-
-window.uploadProfileImage = async function (file) {
-    // Cloudinary Config
-    // Cloud Name: zynexcloud
-    // Preset: zynex (Must be 'Unsigned' in Cloudinary Settings)
-    const CLOUDINARY_URL = "https://api.cloudinary.com/v1_1/zynexcloud/image/upload";
-    const CLOUDINARY_UPLOAD_PRESET = "zynex";
-
-    const form = new FormData();
-    form.append("file", file);
-    form.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-
-    try {
-        const res = await fetch(CLOUDINARY_URL, {
-            method: "POST",
-            body: form,
-        });
-
-        const data = await res.json();
-
-        if (res.ok && data.secure_url) {
-            const imgEl = document.getElementById("profileImage");
-            const iconEl = document.getElementById("defaultProfileIcon");
-            if(imgEl) { imgEl.src = data.secure_url; imgEl.style.display = "block"; }
-            if(iconEl) iconEl.style.display = "none";
-
-            const user = auth.currentUser;
-            if (user) {
-                // Update both Firebase Auth profile and Realtime Database
-                await updateProfile(user, { photoURL: data.secure_url });
-                await set(ref(database, "users/" + user.uid + "/photoURL"), data.secure_url);
-            }
-
-            showAlert("Profile picture updated!", "Success");
-        } else throw "Upload failed";
-
-    } catch (err) {
-        console.error(err);
-        showAlert("Upload failed. Please try again.", "Error");
-    }
-};
-
-// ================= SETTINGS LOGIC =================
-
-window.resetPassword = function() {
-    const user = auth.currentUser;
-    if(user && user.email) {
-        showConfirm("Send password reset email to " + user.email + "?", () => {
-            sendPasswordResetEmail(auth, user.email)
-                .then(() => showAlert("Password reset email sent! Check your inbox.", "Sent"))
-                .catch(e => showAlert("Error: " + e.message));
-        });
-    } else {
-        showAlert("No email associated with this account.");
-    }
-};
-
 window.handleChangePassword = function() {
     clearInlineErrors();
     const oldPass = document.getElementById('cp-old').value;
@@ -468,22 +420,15 @@ window.handleChangePassword = function() {
     const confirmPass = document.getElementById('cp-confirm').value;
 
     let hasError = false;
-    if (!oldPass) { showInlineError('error-cp-old', 'Current password is required'); hasError = true; }
-    if (!newPass) { showInlineError('error-cp-new', 'New password is required'); hasError = true; }
-    if (!confirmPass) { showInlineError('error-cp-confirm', 'Confirm password is required'); hasError = true; }
-    
-    if (newPass !== confirmPass) {
-        showInlineError('error-cp-confirm', "New passwords do not match.");
-        hasError = true;
-    } else if (newPass && newPass.length < 6) {
-        showInlineError('error-cp-new', "Password should be at least 6 characters.");
-        hasError = true;
-    }
+    if(!oldPass) { showInlineError('error-cp-old', 'Old password is required'); hasError = true; }
+    if(!newPass) { showInlineError('error-cp-new', 'New password is required'); hasError = true; }
+    if(newPass.length < 6) { showInlineError('error-cp-new', 'Password must be at least 6 characters'); hasError = true; }
+    if(newPass !== confirmPass) { showInlineError('error-cp-confirm', 'Passwords do not match'); hasError = true; }
 
     if(hasError) return;
 
     const user = auth.currentUser;
-    if (!user) return;
+    if(!user) return;
 
     const credential = EmailAuthProvider.credential(user.email, oldPass);
 
@@ -491,10 +436,7 @@ window.handleChangePassword = function() {
         updatePassword(user, newPass).then(() => {
             showAlert("Password updated successfully!", "Success");
             closePopup('.change-password-popup');
-            document.getElementById('cp-old').value = '';
-            document.getElementById('cp-new').value = '';
-            document.getElementById('cp-confirm').value = '';
-        }).catch(err => showAlert(err.message, "Update Error"));
+        }).catch(err => showInlineError('error-cp-new', err.message));
     }).catch(err => {
         showInlineError('error-cp-old', "Incorrect old password.");
     });
@@ -727,106 +669,55 @@ window.copyToClipboard = function(text, btn) {
 };
 
 // ================= ADMIN DASHBOARD LOGIC =================
-window.loadAdminDashboard = function(user) {
-    console.log("Loading Admin Dashboard for:", user.email);
-    const admins = ["devraj85271@gmail.com", "kansh8042@gmail.com"];
+window.loadAdminDashboard = async function(user) {
+    // REFACTOR: This function now fetches all data from the secure backend API
+    // instead of listening directly to the database. This is more secure and scalable.
+    console.log("Loading Admin Dashboard for admin user:", user.email);
 
-    if (!user || !admins.includes(user.email)) {
-        document.querySelector('.content').innerHTML = "<h2 style='text-align:center; margin-top:50px; color:#ff4d4f'>Access Denied</h2><p style='text-align:center'>You do not have permission to view this page.</p>";
-        return;
-    }
+    try {
+        const token = await user.getIdToken();
+        const headers = { 'Authorization': `Bearer ${token}` };
 
-    if (window.adminDashboardUnsub) window.adminDashboardUnsub();
+        // Fetch all necessary data concurrently
+        const [ordersRes, usersRes] = await Promise.all([
+            fetch(`${BACKEND_URL}/api/admin/orders`, { headers }),
+            fetch(`${BACKEND_URL}/api/admin/users`, { headers })
+        ]);
 
-    // Use onValue for real-time updates in Admin Dashboard
-    window.adminDashboardUnsub = onValue(ref(database, 'users'), (snapshot) => {
-        if (snapshot.exists()) {
-            const users = snapshot.val();
-            let allOrders = [];
-
-            // Flatten orders from all users
-            Object.keys(users).forEach(userId => {
-                const userData = users[userId];
-                if (userData.orders) {
-                    Object.values(userData.orders).forEach(order => {
-                        allOrders.push({
-                            ...order,
-                            userId: userId,
-                            username: userData.username || userData.email
-                        });
-                    });
-                }
-            });
-
-            // Sort by timestamp desc (newest first)
-            allOrders.sort((a, b) => b.timestamp - a.timestamp);
-            window.allAdminOrders = allOrders; // Store for filtering
-            renderAdminStats(allOrders);
-            renderAdminTable(allOrders);
-            renderAdminUsers(users); // New: Render Users Tab
-        } else {
+        if (!ordersRes.ok || !usersRes.ok) {
+            throw new Error('Failed to fetch admin data.');
         }
-    }, (error) => {
+
+        const allOrders = await ordersRes.json();
+        const allUsers = await usersRes.json();
+
+        window.allAdminOrders = allOrders; // Store for filtering
+        window.allAdminUsers = allUsers; // Store for filtering
+
+        // Render the main tables
+        renderAdminTable(allOrders);
+        renderAdminUsers(allUsers);
+
+        // Initial load for tickets and giveaways
+        loadAdminTickets();
+        if (window.loadAdminGiveaways) window.loadAdminGiveaways();
+
+    } catch (error) {
         console.error("Admin load error:", error);
         const tbody = document.getElementById('admin-orders-body');
-        if(tbody) tbody.innerHTML = `<tr><td colspan='7' style='text-align:center; padding:20px; color:red'>Error loading data: ${error.message}<br><small>Check Database Rules if "Permission denied"</small></td></tr>`;
-    });
+        if(tbody) tbody.innerHTML = `<tr><td colspan='7' style='text-align:center; padding:20px; color:red'>Error loading data: ${error.message}</td></tr>`;
+    }
 
     // Load current announcement for settings tab
     get(ref(database, 'system/announcement')).then(snap => {
         const input = document.getElementById('admin-announcement-input');
         if(input && snap.exists()) input.value = snap.val();
     });
-
-    // Load tickets (already using onValue inside loadAdminTickets if we switch it)
-    loadAdminTickets();
 };
 
-window.renderAdminStats = function(orders) {
-    let totalRevenue = 0; // All non-cancelled orders
-    let completedRevenue = 0; // Only completed orders
-    let completedCost = 0; // Only completed orders
-    let pendingCount = 0;
-
-    // Cost prices provided by user
-    const costPrices = {
-        'Instagram': {
-            'Followers': 0.13,
-            'Likes': 0.02,
-            'Views': 0.004,
-            'Comments': 0.2,
-            'Reel Repost': 0.07,
-            'Reel Share': 0.003,
-            'Story Views': 0.02
-        },
-        'YouTube': {
-            'Subscribers': 2.8,
-            'Likes': 0.06,
-            'Views': 0.33,
-            'Comment Likes': 0.0165
-        }
-    };
-
-    orders.forEach(o => {
-        if (o.status !== 'cancelled') {
-            totalRevenue += (parseFloat(o.totalPrice) || 0);
-        }
-        if (o.status === 'completed') {
-            completedRevenue += (parseFloat(o.totalPrice) || 0);
-            // Calculate cost for completed orders
-            if (costPrices[o.service] && costPrices[o.service][o.option] && o.amount) {
-                const unitCost = costPrices[o.service][o.option];
-                completedCost += (parseInt(o.amount) * unitCost);
-            }
-        }
-        if (o.status === 'pending' || o.status === 'processing' || o.status === 'inprocess') {
-            pendingCount++;
-        }
-    });
-
-    const profit = completedRevenue - completedCost;
-
-    window.currentAdminProfit = profit;
+window.renderAdminStats = function(stats) {
+    // REFACTOR: This function now receives stats directly from the backend API.
+    const { totalRevenue, totalProfit, totalOrders, pendingCount } = stats;
 
     const revEl = document.getElementById('admin-total-revenue');
     const ordEl = document.getElementById('admin-total-orders');
@@ -834,41 +725,17 @@ window.renderAdminStats = function(orders) {
     const profitEl = document.getElementById('admin-total-profit');
 
     if(revEl) revEl.innerText = "₹" + totalRevenue.toLocaleString('en-IN');
-    if(ordEl) ordEl.innerText = orders.length;
+    if(ordEl) ordEl.innerText = totalOrders;
     if(penEl) penEl.innerText = pendingCount;
-    if(profitEl) {
-        profitEl.innerText = "₹" + profit.toFixed(2);
-        profitEl.style.color = profit >= 0 ? '#00c853' : '#ff4d4f';
-    }
-
-    // --- Profit Change Display ---
-    const storedRef = localStorage.getItem('zynex_admin_ref_profit');
-    const refProfit = storedRef ? parseFloat(storedRef) : 0;
-    const change = profit - refProfit;
-
-    let changeEl = document.getElementById('admin-profit-change');
-    if (!changeEl && profitEl) {
-        const card = profitEl.closest('.stat-card');
-        if (card && card.parentNode) {
-            const newCard = document.createElement('div');
-            newCard.className = 'stat-card';
-            newCard.innerHTML = `<h4>Profit Change</h4><p class="stat-value" id="admin-profit-change">₹0.00</p><button onclick="resetProfitChange()" style="background:#eee;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:0.8rem;margin-top:5px;color:#333">Reset</button>`;
-            card.parentNode.insertBefore(newCard, card.nextSibling);
-            changeEl = newCard.querySelector('#admin-profit-change');
-        }
-    }
-    if (changeEl) {
-        changeEl.innerText = (change >= 0 ? "+" : "") + "₹" + change.toFixed(2);
-        changeEl.style.color = change >= 0 ? '#00c853' : '#ff4d4f';
+    if (profitEl) {
+        profitEl.innerText = "₹" + totalProfit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        profitEl.style.color = totalProfit >= 0 ? '#00c853' : '#ff4d4f';
     }
 };
 
 window.resetProfitChange = function() {
-    if (typeof window.currentAdminProfit !== 'undefined') {
-        localStorage.setItem('zynex_admin_ref_profit', window.currentAdminProfit);
-        if (window.allAdminOrders) renderAdminStats(window.allAdminOrders);
-        showAlert("Profit tracker reset.", "Success");
-    }
+    // This feature is disabled because profit is no longer calculated on the client.
+    showAlert("This feature has been disabled for security reasons.", "Info");
 };
 
 window.renderAdminTable = function(orders) {
@@ -886,7 +753,7 @@ window.renderAdminTable = function(orders) {
     orders.forEach(o => { if(o.utr) utrCounts[o.utr] = (utrCounts[o.utr] || 0) + 1; });
 
     orders.forEach(order => {
-        const date = new Date(order.timestamp).toLocaleDateString();
+        const date = new Date(order.timestamp).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
         const status = order.status || 'pending';
         const statusClass = status === 'completed' ? 'status-completed' : 'status-pending';
         const statusText = status === 'pending' ? 'Pending' : status.charAt(0).toUpperCase() + status.slice(1);
@@ -920,7 +787,7 @@ window.renderAdminTable = function(orders) {
                 </td>
                 <td>${statusBadge}</td>
                 <td>
-                    <button class="view-btn" style="padding:6px 12px; font-size:0.75rem" onclick="openAdminManage('${order.userId}', '${order.id}')">Manage</button>
+                    <button class="view-btn" style="padding:6px 12px; font-size:0.75rem" onclick="openAdminManage('${order.userId}', '${order.id}')"><ion-icon name="create-outline"></ion-icon> Manage</button>
                 </td>
             </tr>
         `;
@@ -937,25 +804,13 @@ function getStatusColor(status) {
 }
 
 // ================= ADMIN USERS TAB =================
-window.renderAdminUsers = function(usersObj) {
+window.renderAdminUsers = function(usersList) {
+    // REFACTOR: This function now receives a clean user array from the API.
     const tbody = document.getElementById('admin-users-body');
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    const usersList = Object.keys(usersObj).map(uid => {
-        const u = usersObj[uid];
-        let spent = 0;
-        let count = 0;
-        if(u.orders) {
-            Object.values(u.orders).forEach(o => {
-                if(o.status !== 'cancelled') spent += (parseFloat(o.totalPrice)||0);
-                count++;
-            });
-        }
-        return { uid, ...u, totalSpent: spent, totalOrders: count };
-    }).sort((a,b) => b.totalSpent - a.totalSpent); // Sort by highest spender
-
-    window.allAdminUsers = usersList; // Store for filtering
+    if (!usersList || usersList.length === 0) return;
 
     usersList.forEach(u => {
         const row = `<tr>
@@ -1246,13 +1101,16 @@ window.switchAdminTab = function(tabName) {
     document.querySelectorAll('.admin-tab-btn').forEach(el => el.classList.remove('active'));
     
     // Show selected
-    document.getElementById('admin-tab-' + tabName).style.display = 'block';
+    const content = document.getElementById('admin-tab-' + tabName);
+    if (content) content.style.display = 'block';
+    
     // Highlight button
     const btns = document.querySelectorAll('.admin-tab-btn');
-    if(tabName === 'orders' && btns[0]) btns[0].classList.add('active');
-    if(tabName === 'tickets' && btns[1]) btns[1].classList.add('active');
-    if(tabName === 'users' && btns[2]) btns[2].classList.add('active');
-    if(tabName === 'settings' && btns[3]) btns[3].classList.add('active');
+    btns.forEach(btn => {
+        if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(tabName)) {
+            btn.classList.add('active');
+        }
+    });
 
     // Clear notification for this tab (mark as seen)
     if (window.adminCounts && window.adminCounts[tabName] !== undefined) {
@@ -1330,17 +1188,45 @@ window.openSupportCenter = function() {
     
     content.innerHTML = `
         <button class="close-icon" aria-label="Close" onclick="closePopup('.help-popup')">&times;</button>
-        <h2 style="text-align:center; margin-bottom:20px">Support Center</h2>
-        <div style="display:grid; gap:15px;">
-            <button onclick="showCreateTicket()" class="service-opt-btn" style="justify-content:center;">
-                <ion-icon name="add-circle-outline"></ion-icon> Create New Ticket
+        <div style="text-align:center; margin-bottom:20px;">
+            <div style="width:60px; height:60px; background:rgba(92, 108, 255, 0.1); color:#5c6cff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:32px; margin:0 auto 15px;">
+                <ion-icon name="headset" style="margin:0"></ion-icon>
+            </div>
+            <h2 style="margin:0; font-size:1.5rem;">Support Center</h2>
+            <p style="color:#888; font-size:0.9rem; margin-top:5px;">How can we help you today?</p>
+        </div>
+        
+        <div style="display:grid; gap:15px; margin-bottom:25px;">
+            <button onclick="showCreateTicket()" class="action-card" style="padding:15px; display:flex; align-items:center; gap:15px; text-align:left; margin:0; cursor:pointer; width:100%; border-radius:12px;">
+                <div style="background:rgba(46, 125, 50, 0.1); color:#2e7d32; width:45px; height:45px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <ion-icon name="add-circle" style="font-size:24px; margin:0;"></ion-icon>
+                </div>
+                <div>
+                    <h3 style="font-size:1rem; margin-bottom:2px;">Create New Ticket</h3>
+                    <p style="font-size:0.8rem; margin:0; line-height:1.3;">Report an issue with your order</p>
+                </div>
             </button>
-            <button onclick="showUserTickets()" class="service-opt-btn" style="justify-content:center;">
-                <ion-icon name="list-outline"></ion-icon> View My Tickets
+            
+            <button onclick="showUserTickets()" class="action-card" style="padding:15px; display:flex; align-items:center; gap:15px; text-align:left; margin:0; cursor:pointer; width:100%; border-radius:12px;">
+                <div style="background:rgba(239, 108, 0, 0.1); color:#ef6c00; width:45px; height:45px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <ion-icon name="ticket" style="font-size:24px; margin:0;"></ion-icon>
+                </div>
+                <div>
+                    <h3 style="font-size:1rem; margin-bottom:2px;">View My Tickets</h3>
+                    <p style="font-size:0.8rem; margin:0; line-height:1.3;">Check updates on past tickets</p>
+                </div>
             </button>
-            <div style="text-align:center; margin-top:10px; font-size:0.9rem; color:#666">
-                <p>Or email us at <a href="mailto:zynex.official.help@gmail.com" style="color:#5c6cff">zynex.official.help@gmail.com</a></p>
-                <p style="margin-top:5px"><ion-icon name="logo-instagram"></ion-icon> <a href="#" style="color:#5c6cff">@Glitchfx_edits</a></p>
+        </div>
+
+        <div class="contact-methods" style="border-top:1px solid #eee; padding-top:20px; text-align:center;">
+            <p style="font-size:0.8rem; color:#888; margin-bottom:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Direct Contact</p>
+            <div style="display:flex; justify-content:center; gap:10px;">
+                <a href="mailto:zynex.official.help@gmail.com" class="contact-pill">
+                    <ion-icon name="mail" style="color:#ea4335; margin:0; font-size:16px;"></ion-icon> Email
+                </a>
+                <a href="https://instagram.com/smmzynex.in" target="_blank" class="contact-pill">
+                    <ion-icon name="logo-instagram" style="color:#C13584; margin:0; font-size:16px;"></ion-icon> Instagram
+                </a>
             </div>
         </div>
     `;
@@ -1458,11 +1344,13 @@ window.showUserTickets = function() {
 window.viewUserTicket = function(ticketId) {
     const content = document.querySelector('.popup-content.help');
     
+    let currentTicketListener = null;
     // Stop listening to previous ticket if any
-    if(userTicketUnsub) userTicketUnsub();
+    if(currentTicketListener) currentTicketListener();
+    if(userTicketUnsub) { userTicketUnsub(); userTicketUnsub = null; }
 
     // Start real-time listener
-    userTicketUnsub = onValue(ref(database, `tickets/${ticketId}`), (snap) => {
+    currentTicketListener = onValue(ref(database, `tickets/${ticketId}`), (snap) => {
         if(!snap.exists()) return;
         const t = snap.val();
         
@@ -1609,7 +1497,7 @@ window.renderAdminTicketsTable = function(tickets) {
                     <small style="color:#888">${sanitize(t.userEmail)}</small>
                 </td>
                 <td>${sanitize(t.subject)}</td>
-                <td style="font-size:0.85rem; color:#666">${new Date(t.timestamp).toLocaleDateString()}</td>
+                <td style="font-size:0.85rem; color:#666">${new Date(t.timestamp).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</td>
                 <td>${statusBadge}</td>
                 <td>
                     <button class="view-btn" style="padding:6px 12px; font-size:0.75rem" onclick="openAdminTicketManage('${t.id}')">View</button>
@@ -1625,9 +1513,10 @@ let currentAdminTicketId = null;
 window.openAdminTicketManage = function(ticketId) {
     currentAdminTicketId = ticketId;
     
-    if(adminTicketUnsub) adminTicketUnsub();
+    let currentAdminTicketListener = null;
+    if(currentAdminTicketListener) currentAdminTicketListener();
 
-    adminTicketUnsub = onValue(ref(database, `tickets/${ticketId}`), (snap) => {
+    currentAdminTicketListener = onValue(ref(database, `tickets/${ticketId}`), (snap) => {
         if(!snap.exists()) return;
         const t = snap.val();
 
@@ -1688,55 +1577,59 @@ window.deleteAdminTicket = function() {
     });
 };
 
-window.setupAdminRealtimeListeners = function() {
-    if (window.adminBadgeUnsubTickets) window.adminBadgeUnsubTickets();
-    if (window.adminBadgeUnsubOrders) window.adminBadgeUnsubOrders();
+window.setupAdminRealtimeListeners = async function() {
+    // REFACTOR: This system now polls a single, secure API endpoint for stats
+    // instead of using expensive real-time listeners on the entire database.
+    // This is vastly more performant and secure.
+
+    if (window.adminStatsInterval) clearInterval(window.adminStatsInterval);
 
     // Request Browser Notification Permission for Admins
     if ("Notification" in window && Notification.permission !== "granted") {
         Notification.requestPermission();
     }
 
-    // Listen to all tickets for Open status
-    window.adminBadgeUnsubTickets = onValue(ref(database, 'tickets'), (snap) => {
-        let openCount = 0;
-        snap.forEach(c => { if(c.val().status === 'open') openCount++; });
-        
-        updateAdminBadges('tickets', openCount);
-    });
+    let lastPendingCount = -1;
 
-    let lastPendingCount = -1; // Track previous count to detect new orders
+    const fetchAdminStats = async () => {
+        const user = auth.currentUser;
+        if (!user) return;
 
-    // Listen to all users for Pending orders
-    window.adminBadgeUnsubOrders = onValue(ref(database, 'users'), (snap) => {
-        let pendingCount = 0;
-        snap.forEach(userSnap => {
-            const orders = userSnap.val().orders;
-            if(orders) {
-                Object.values(orders).forEach(o => {
-                    if(o.status === 'pending') pendingCount++;
-                });
+        try {
+            const token = await user.getIdToken();
+            const res = await fetch(`${BACKEND_URL}/api/admin/stats`, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (!res.ok) return;
+
+            const stats = await res.json();
+            
+            // Update dashboard stat cards
+            renderAdminStats(stats);
+
+            // Update notification badges
+            updateAdminBadges('tickets', stats.openTicketsCount);
+            updateAdminBadges('orders', stats.pendingCount);
+
+            // Trigger browser notification if new pending orders arrived
+            if (lastPendingCount !== -1 && stats.pendingCount > lastPendingCount) {
+                showAlert("New Order Received!", "Admin Alert");
+                if (Notification.permission === "granted") {
+                    new Notification("New Order Received!", {
+                        body: `You have ${stats.pendingCount} pending orders waiting for verification.`,
+                        icon: "logo.png"
+                    });
+                }
             }
-        });
+            lastPendingCount = stats.pendingCount;
 
-        // If not first load (-1) and count increased, trigger notification
-        if (lastPendingCount !== -1 && pendingCount > lastPendingCount) {
-            // 1. Browser Notification
-            if (Notification.permission === "granted") {
-                new Notification("New Order Received!", {
-                    body: `You have ${pendingCount} pending orders waiting for verification.`,
-                    icon: "logo.png"
-                });
-            }
-            // 2. In-App Alert
-            showAlert("New Order Received!", "Admin Alert");
+        } catch (error) {
+            console.error("Failed to fetch admin stats:", error);
         }
-        lastPendingCount = pendingCount;
+    };
 
-        updateAdminBadges('orders', pendingCount);
-    });
+    // Fetch immediately on load, then poll every 30 seconds
+    fetchAdminStats();
+    window.adminStatsInterval = setInterval(fetchAdminStats, 30000); // 30 seconds
 };
-
 window.updateAdminBadges = function(type, count) {
     const sidebarBadge = document.getElementById('admin-sidebar-badge');
     const tabBadge = document.getElementById(`admin-${type}-badge`);
@@ -1814,6 +1707,546 @@ window.setupUserNotifications = function(user) {
     });
 };
 
+// ================= GIVEAWAY SYSTEM =================
+// --- ADMIN SIDE ---
+window.loadAdminGiveaways = function() {
+    if(window.adminGiveawaysUnsub) window.adminGiveawaysUnsub();
+
+    window.adminGiveawaysUnsub = onValue(ref(database, 'giveaways'), (snap) => {
+        const listContainer = document.getElementById('admin-giveaways-list');
+        if(!listContainer) return;
+        
+        listContainer.innerHTML = '';
+        if(!snap.exists()) {
+            listContainer.innerHTML = '<p style="grid-column:1/-1; color:#999; text-align:center;">No giveaways created yet.</p>';
+            window.allGiveaways = [];
+            return;
+        }
+
+        const giveaways = [];
+        snap.forEach(c => { giveaways.push({id: c.key, ...c.val()}); });
+        giveaways.sort((a,b) => (b.timestamp||0) - (a.timestamp||0));
+        window.allGiveaways = giveaways;
+
+        // Fetch entries count for all to display on cards
+        get(ref(database, 'giveaway_entries')).then(entriesSnap => {
+            const allEntries = entriesSnap.exists() ? entriesSnap.val() : {};
+            let html = '';
+
+            giveaways.forEach(g => {
+                const statusColor = g.isActive ? '#00c853' : '#999';
+                const statusText = g.isActive ? 'Active' : 'Ended';
+                const entriesCount = allEntries[g.id] ? Object.keys(allEntries[g.id]).length : 0;
+                const imgBg = g.imageUrl ? `background-image: url('${sanitize(g.imageUrl)}');` : `background: linear-gradient(135deg, #5c6cff, #8c52ff);`;
+                
+                html += `
+                    <div class="admin-ga-card">
+                        <div class="admin-ga-thumb" style="${imgBg}">
+                            <div style="position:absolute; top:10px; right:10px; display:flex; align-items:center; gap:5px; font-size:0.75rem; color:#fff; font-weight:600; background:rgba(0,0,0,0.6); padding:4px 10px; border-radius:12px;">
+                                <div style="width:8px; height:8px; border-radius:50%; background:${statusColor};"></div> ${statusText}
+                            </div>
+                        </div>
+                        <div class="admin-ga-content">
+                            <h4 style="margin-bottom:5px; font-size:1.1rem;">${sanitize(g.title)}</h4>
+                            <p style="color:#666; font-size:0.9rem; margin-bottom:5px;">Prize: <strong>${sanitize(g.prize)}</strong></p>
+                            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                                <span style="color:#888; font-size:0.85rem;">Ends: ${g.endDate ? new Date(g.endDate).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'No limit'}</span>
+                                <span style="color:#5c6cff; font-size:0.85rem; font-weight:600;">${entriesCount} Entries</span>
+                            </div>
+                            <div style="font-size:0.8rem; color:#888;">Winners Configured: <strong>${g.winnersCount || 1}</strong></div>
+                            <div class="admin-ga-actions">
+                                <button class="btn-outline" onclick="openManageGiveaway('${g.id}')">Manage</button>
+                                <button class="btn-outline" style="flex:0 0 40px" onclick="toggleGiveawayActive('${g.id}', ${g.isActive})" title="${g.isActive ? 'Pause' : 'Activate'}"><ion-icon name="${g.isActive ? 'pause' : 'play'}"></ion-icon></button>
+                                <button class="btn-outline" style="flex:0 0 40px" onclick="duplicateGiveaway('${g.id}')" title="Duplicate"><ion-icon name="copy"></ion-icon></button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            listContainer.innerHTML = html;
+        });
+    });
+};
+
+window.toggleGiveawayActive = function(id, currentState) {
+    update(ref(database, `giveaways/${id}`), { isActive: !currentState })
+        .then(() => showAlert(`Giveaway successfully ${!currentState ? 'activated' : 'paused'}.`, "Success"));
+};
+
+window.duplicateGiveaway = function(id) {
+    const g = window.allGiveaways.find(x => x.id === id);
+    if(!g) return;
+    showConfirm(`Are you sure you want to duplicate "${g.title}"?`, () => {
+        const copy = { ...g, title: g.title + " (Copy)", isActive: false, winner: null, declined_winners: null, timestamp: Date.now() };
+        delete copy.id;
+        push(ref(database, 'giveaways'), copy).then(() => showAlert("Giveaway duplicated successfully.", "Success"));
+    });
+};
+
+window.openCreateGiveawayPopup = function() {
+    document.getElementById('cg-id').value = '';
+    document.getElementById('cg-title').value = '';
+    document.getElementById('cg-prize').value = '';
+    document.getElementById('cg-image').value = '';
+    document.getElementById('cg-desc').value = '';
+    document.getElementById('cg-rules').value = '';
+    document.getElementById('cg-end').value = '';
+    document.getElementById('cg-winners-count').value = '1';
+    document.getElementById('cg-active').checked = true;
+    document.getElementById('cg-modal-title').innerText = 'Create Giveaway';
+    openPopup('.create-giveaway-popup');
+};
+
+window.openEditGiveaway = function(id) {
+    const g = window.allGiveaways.find(x => x.id === id);
+    if(!g) return;
+    
+    document.getElementById('cg-id').value = g.id;
+    document.getElementById('cg-title').value = g.title || '';
+    document.getElementById('cg-prize').value = g.prize || '';
+    document.getElementById('cg-image').value = g.imageUrl || '';
+    document.getElementById('cg-desc').value = g.description || '';
+    document.getElementById('cg-rules').value = g.rules || '';
+    document.getElementById('cg-end').value = g.endDate || '';
+    document.getElementById('cg-winners-count').value = g.winnersCount || 1;
+    document.getElementById('cg-active').checked = g.isActive;
+    document.getElementById('cg-modal-title').innerText = 'Edit Giveaway';
+    
+    closePopup('.manage-giveaway-popup');
+    openPopup('.create-giveaway-popup');
+};
+
+window.saveGiveaway = function() {
+    const id = document.getElementById('cg-id').value;
+    const title = document.getElementById('cg-title').value.trim();
+    const prize = document.getElementById('cg-prize').value.trim();
+    
+    if(!title || !prize) return showAlert("Title and Prize are required.");
+    
+    const data = {
+        title, prize,
+        imageUrl: document.getElementById('cg-image').value.trim(),
+        description: document.getElementById('cg-desc').value.trim(),
+        rules: document.getElementById('cg-rules').value.trim(),
+        endDate: document.getElementById('cg-end').value,
+        winnersCount: parseInt(document.getElementById('cg-winners-count').value) || 1,
+        isActive: document.getElementById('cg-active').checked
+    };
+    
+    if(id) {
+        update(ref(database, `giveaways/${id}`), data).then(() => {
+            showAlert("Giveaway updated.");
+            closePopup('.create-giveaway-popup');
+        });
+    } else {
+        data.timestamp = Date.now();
+        push(ref(database, 'giveaways'), data).then(() => {
+            showAlert("Giveaway created.");
+            closePopup('.create-giveaway-popup');
+        });
+    }
+};
+
+window.deleteGiveaway = function(id) {
+    showConfirm("Are you sure you want to delete this giveaway and all its entries?", () => {
+        remove(ref(database, `giveaways/${id}`));
+        remove(ref(database, `giveaway_entries/${id}`));
+        closePopup('.manage-giveaway-popup');
+        showAlert("Giveaway deleted.");
+    });
+};
+
+window.currentMgId = null;
+
+window.openManageGiveaway = function(id) {
+    window.currentMgId = id;
+    switchMgTab('details');
+    
+    const g = window.allGiveaways.find(x => x.id === id);
+    document.getElementById('mg-title').innerText = sanitize(g.title);
+    
+    get(ref(database, `giveaway_entries/${id}`)).then(snap => {
+        const tbody = document.getElementById('mg-entries-body');
+        const countEl = document.getElementById('mg-entries-count');
+        tbody.innerHTML = '';
+        if(!snap.exists()) {
+            countEl.innerText = '0';
+            window.currentGiveawayEntries = [];
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">No entries</td></tr>';
+            return;
+        }
+        
+        const entries = [];
+        snap.forEach(c => { entries.push(c.val()); });
+        entries.sort((a,b) => b.timestamp - a.timestamp);
+        window.currentGiveawayEntries = entries;
+        countEl.innerText = entries.length;
+        
+        entries.forEach(e => {
+            tbody.innerHTML += `<tr>
+                <td>${sanitize(e.username)}<br><small>${sanitize(e.email)}</small></td>
+                <td>@${sanitize(e.igHandle)}</td>
+                <td>${new Date(e.timestamp).toLocaleDateString()}</td>
+            </tr>`;
+        });
+        
+        renderWinnerTab(g);
+    });
+    
+    openPopup('.manage-giveaway-popup');
+};
+
+window.switchMgTab = function(tab) {
+    ['details', 'entries', 'winner'].forEach(t => {
+        document.getElementById(`mg-tab-${t}`).style.display = (t === tab) ? 'block' : 'none';
+        document.getElementById(`btn-mg-${t}`).classList.remove('active');
+    });
+    document.getElementById(`btn-mg-${tab}`).classList.add('active');
+};
+
+window.renderWinnerTab = function(g) {
+    const content = document.getElementById('mg-winner-content');
+    let html = '';
+    
+    const winnersList = g.winners || (g.winner ? [g.winner] : []);
+    
+    if(winnersList.length > 0) {
+        html += `<h4 style="color:#2e7d32; margin-bottom:10px;">Current Winner(s)</h4>`;
+        winnersList.forEach(w => {
+            html += `
+                <div style="background:#e8f5e9; padding:15px; border-radius:10px; margin-bottom:15px; border:1px solid #c8e6c9; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <p style="margin:0;"><strong>${sanitize(w.username)}</strong> (@${sanitize(w.igHandle)})</p>
+                        <p style="font-size:0.8rem; color:#666; margin:5px 0 0 0;">Picked: ${new Date(w.timestamp).toLocaleDateString()}</p>
+                    </div>
+                    <button class="btn-outline" style="color:#e65100; border-color:#ffe0b2; padding:6px 12px; font-size:0.8rem;" onclick="rerollGiveaway('${g.id}', '${w.userId}')">Reroll</button>
+                </div>
+            `;
+        });
+        
+        if (winnersList.length < (g.winnersCount || 1)) {
+            html += `<button class="cta" style="width:100%; margin-bottom:15px;" onclick="pickWinner('${g.id}')">Pick ${ (g.winnersCount || 1) - winnersList.length } More Winner(s)</button>`;
+        }
+    } else {
+        html += `
+            <p style="color:#666; margin-bottom:15px;">No winners picked yet (Target: ${g.winnersCount || 1}).</p>
+            <button class="cta" style="width:100%; margin-bottom:15px;" onclick="pickWinner('${g.id}')">Pick Winner(s)</button>
+        `;
+    }
+    
+    if(g.declined_winners && Object.keys(g.declined_winners).length > 0) {
+        html += `<h4 style="margin-top:20px; margin-bottom:10px;">Reroll History</h4><ul style="font-size:0.85rem; color:#666; padding-left:20px;">`;
+        Object.values(g.declined_winners).forEach(dw => {
+            html += `<li style="margin-bottom:5px;"><strong>@${sanitize(dw.igHandle)}</strong> - ${sanitize(dw.reason || 'Simple Reroll')} <br><small>${new Date(dw.timestamp).toLocaleDateString()}</small></li>`;
+        });
+        html += `</ul>`;
+    }
+    
+    content.innerHTML = html;
+};
+
+window.pickWinner = function(id) {
+    const entries = window.currentGiveawayEntries || [];
+    const g = window.allGiveaways.find(x => x.id === id);
+    
+    const declinedIds = g.declined_winners ? Object.keys(g.declined_winners) : [];
+    const existingWinnerIds = g.winners ? g.winners.map(w => w.userId) : (g.winner ? [g.winner.userId] : []);
+    
+    let validEntries = entries.filter(e => !declinedIds.includes(e.userId) && !existingWinnerIds.includes(e.userId));
+    
+    const countNeeded = (g.winnersCount || 1) - existingWinnerIds.length;
+    
+    if(countNeeded <= 0) return showAlert("All required winners have already been picked.");
+    if(validEntries.length === 0) return showAlert("Not enough valid entries left to pick.");
+    
+    let newWinners = [];
+    for(let i=0; i < countNeeded && validEntries.length > 0; i++) {
+        const idx = Math.floor(Math.random() * validEntries.length);
+        newWinners.push(validEntries[idx]);
+        validEntries.splice(idx, 1); // remove picked to avoid duplicates
+    }
+    
+    const updatedWinners = [...(g.winners || (g.winner ? [g.winner] : [])), ...newWinners.map(w => ({
+        userId: w.userId, username: w.username, igHandle: w.igHandle, timestamp: Date.now()
+    }))];
+    
+    update(ref(database, `giveaways/${id}`), {
+        winners: updatedWinners,
+        winner: null, // Legacy wipe
+        isActive: false
+    }).then(() => {
+        g.winners = updatedWinners;
+        g.isActive = false;
+        renderWinnerTab(g);
+        showAlert(`${newWinners.length} winner(s) picked!`);
+    });
+};
+
+window.rerollGiveaway = function(id, winnerUserId) {
+    const g = window.allGiveaways.find(x => x.id === id);
+    const winnersList = g.winners || (g.winner ? [g.winner] : []);
+    const targetWinner = winnersList.find(w => w.userId === winnerUserId);
+    
+    if(!g || !targetWinner) return;
+    
+    showPrompt("Reason for declining previous winner (Leave blank for simple reroll):", (reason) => {
+        const remainingWinners = winnersList.filter(w => w.userId !== winnerUserId);
+        const updates = {};
+        updates[`giveaways/${id}/declined_winners/${targetWinner.userId}`] = {
+            ...targetWinner,
+            reason: reason || 'Simple Reroll',
+            timestamp: Date.now()
+        };
+        updates[`giveaways/${id}/winners`] = remainingWinners;
+        updates[`giveaways/${id}/winner`] = null;
+        updates[`giveaways/${id}/isActive`] = true;
+        
+        update(ref(database), updates).then(() => {
+            g.declined_winners = g.declined_winners || {};
+            g.declined_winners[targetWinner.userId] = { ...targetWinner, reason: reason || 'Simple Reroll', timestamp: Date.now() };
+            g.winners = remainingWinners;
+            g.isActive = true;
+            renderWinnerTab(g);
+            showAlert(`@${targetWinner.igHandle} declined. You can pick a replacement.`);
+        });
+    });
+};
+
+// --- PUBLIC SIDE ---
+window.submitGiveawayEntry = function() {
+    clearInlineErrors();
+    const user = auth.currentUser;
+    if (!user) return showAlert("Please login to enter the giveaway.", "Login Required");
+
+    const gaId = document.getElementById('entry-ga-id').value;
+    const igHandle = document.getElementById('entry-ig-handle').value.trim();
+    if (!igHandle) return showInlineError('error-entry-handle', 'Please enter your Instagram username.');
+
+    const entryRef = ref(database, `giveaway_entries/${gaId}/${user.uid}`);
+    
+    get(entryRef).then((snapshot) => {
+        if (snapshot.exists()) {
+            showAlert("You have already entered this giveaway!", "Already Entered");
+            closePopup('.giveaway-entry-popup');
+        } else {
+            const updates = {};
+            updates[`giveaway_entries/${gaId}/${user.uid}`] = {
+                userId: user.uid,
+                email: user.email,
+                username: user.displayName || 'User',
+                igHandle: igHandle,
+                timestamp: Date.now()
+            };
+            updates[`giveaway_user_entries/${user.uid}/${gaId}`] = igHandle;
+            
+            update(ref(database), updates).then(() => {
+                showAlert("You've successfully entered the giveaway! Good luck!", "Success");
+                closePopup('.giveaway-entry-popup');
+                document.getElementById('entry-ig-handle').value = '';
+            }).catch(err => showAlert(err.message, "Error"));
+        }
+    });
+};
+
+window.loadGiveawayPage = function() {
+    const container = document.getElementById('giveaway-page-content');
+    if(!container) return;
+    
+    const user = auth.currentUser;
+    
+    if(window.gaPageUnsub) window.gaPageUnsub();
+    
+    window.gaPageUnsub = onValue(ref(database, 'giveaways'), snap => {
+        if(!snap.exists()) {
+            container.innerHTML = `<div class="stat-card" style="text-align:center; padding: 60px 20px;">
+                <ion-icon name="sad-outline" style="font-size: 64px; color: #ccc; margin-bottom: 15px;"></ion-icon>
+                <h2>No Giveaways</h2>
+                <p style="color: #666; margin-top: 10px;">There are no giveaways currently. Keep an eye out for future updates!</p>
+            </div>`;
+            return;
+        }
+
+        const giveaways = [];
+        snap.forEach(c => { giveaways.push({id: c.key, ...c.val()}); });
+        giveaways.sort((a,b) => (b.isActive === a.isActive) ? (b.timestamp - a.timestamp) : (b.isActive ? -1 : 1));
+
+        if(user) {
+            get(ref(database, `giveaway_user_entries/${user.uid}`)).then(entrySnap => {
+                const userEntries = entrySnap.exists() ? entrySnap.val() : {};
+                renderGiveawaysList(giveaways, userEntries, user, container);
+            }).catch(err => {
+                console.error("Error fetching user entries:", err);
+                renderGiveawaysList(giveaways, {}, user, container);
+            });
+        } else {
+            renderGiveawaysList(giveaways, {}, null, container);
+        }
+    });
+};
+
+function renderGiveawaysList(giveaways, userEntries, user, container) {
+    let html = '';
+    
+    giveaways.forEach(g => {
+        const hasEntered = !!userEntries[g.id];
+        const userIgHandle = userEntries[g.id] || '';
+        
+        let rulesHtml = '';
+        if(g.rules) {
+            g.rules.split('\n').forEach(r => {
+                if(r.trim()) rulesHtml += `<li><ion-icon name="checkmark-circle"></ion-icon> <span>${sanitize(r)}</span></li>`;
+            });
+        } else {
+            rulesHtml = `<li><ion-icon name="checkmark-circle"></ion-icon> <span>Follow our Instagram</span></li>`;
+        }
+        
+        const isEnded = !g.isActive;
+        const winnersList = g.winners || (g.winner ? [g.winner] : []);
+        const imgBg = g.imageUrl ? `background-image: url('${sanitize(g.imageUrl)}');` : `background: linear-gradient(135deg, #ff416c, #ff4b2b);`;
+        
+        let actionHtml = '';
+        if (isEnded) {
+            if(winnersList.length > 0) {
+                const handlesHtml = winnersList.map(w => `<div class="winner-handle" style="font-size:1rem; padding:8px 20px; margin:5px; box-shadow:0 4px 10px rgba(0,0,0,0.1);">@${sanitize(w.igHandle)}</div>`).join('');
+                actionHtml = `
+                    <div class="ga-modern-action" style="background: linear-gradient(135deg, #FFD700 0%, #FFA000 100%); padding:20px; border-radius:12px; text-align:center; color:#fff;">
+                        <ion-icon name="trophy" style="font-size: 40px; margin-bottom: 10px;"></ion-icon>
+                        <h3 style="margin-bottom:15px; font-size:1.3rem;">Giveaway Ended!</h3>
+                        <p style="font-size:0.9rem; margin-bottom:10px; opacity:0.9;">Congratulations to our winner(s):</p>
+                        <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:5px;">${handlesHtml}</div>
+                    </div>
+                `;
+            } else {
+                actionHtml = `<div class="ga-modern-action" style="text-align:center; padding:20px; color:#999; background:#f9f9f9; border-radius:12px;">Giveaway Ended</div>`;
+            }
+        } else {
+            if (!user) {
+                actionHtml = `
+                    <div class="ga-modern-action">
+                        <button class="cta" onclick="window.location.href='account.html?login=true'" style="width: 100%; background: #333; padding:15px; font-size:1.05rem;">
+                            <ion-icon name="lock-closed-outline"></ion-icon> Login to Enter
+                        </button>
+                        <p style="text-align:center; font-size:0.8rem; color:#888; margin-top:10px;">You must be logged in to participate.</p>
+                    </div>
+                `;
+            } else if (hasEntered) {
+                actionHtml = `
+                    <div class="ga-modern-action entered-badge" style="margin:0; padding:15px; flex-direction:row; justify-content:center;">
+                        <ion-icon name="checkmark-circle" style="font-size:32px;"></ion-icon>
+                        <div>
+                            <h4 style="margin:0; font-size:1.1rem;">You're In!</h4>
+                            <p style="margin:0; font-size:0.85rem;">Registered as @${sanitize(userIgHandle)}</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                actionHtml = `
+                    <div class="ga-modern-action">
+                        <button class="cta" onclick="openGiveawayPopup('${g.id}')" style="width: 100%; padding:15px; font-size:1.1rem; background: linear-gradient(135deg, #ff416c, #ff4b2b); box-shadow: 0 5px 15px rgba(255, 65, 108, 0.3);">
+                            <ion-icon name="gift-outline"></ion-icon> Enter Giveaway Now
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        const opacity = isEnded ? '0.7' : '1';
+
+        html += `
+            <div class="giveaway-card-modern" style="opacity:${opacity};" id="ga-container-${g.id}">
+                <div class="ga-modern-banner" style="${imgBg}">
+                    ${isEnded ? `<div class="ga-modern-badge ended">Ended</div>` : `<div class="ga-modern-badge">Active</div>`}
+                    <div class="ga-modern-title-area">
+                        <h2>${sanitize(g.title || 'Giveaway')}</h2>
+                        <p>${sanitize(g.description || '')}</p>
+                    </div>
+                </div>
+                
+                <div class="ga-modern-body">
+                    <div class="ga-modern-info">
+                        <div class="ga-modern-prize"><ion-icon name="gift"></ion-icon> ${sanitize(g.prize || 'Surprise')}</div>
+                        ${g.endDate && !isEnded ? `<div class="ga-modern-ends"><ion-icon name="time-outline"></ion-icon> Ends: ${new Date(g.endDate).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</div>` : ''}
+                    </div>
+                    
+                    <div class="ga-modern-rules">
+                        <h4><ion-icon name="list-outline" style="color:#5c6cff;"></ion-icon> How to Enter</h4>
+                        <ul>${rulesHtml}</ul>
+                    </div>
+                    
+                    ${actionHtml}
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+window.showWinnerPopup = function(g, isWinner) {
+    const existing = document.getElementById('winner-anim-container');
+    if(existing) existing.remove();
+    const container = document.createElement('div');
+    container.id = 'winner-anim-container';
+    container.className = 'popup winner-anim-popup';
+    container.setAttribute('aria-hidden', 'false');
+    let contentHtml = '';
+    if (isWinner) {
+        contentHtml = `
+            <div class="winner-anim-card">
+                <button class="close-icon" onclick="document.getElementById('winner-anim-container').remove()" style="position:absolute; top:15px; right:15px; background:none; border:none; color:white; font-size:2rem; cursor:pointer; z-index:10;">&times;</button>
+                <ion-icon name="trophy" class="trophy-icon"></ion-icon>
+                <h2>YOU WON!</h2>
+                <p>Congratulations! You are a winner of <strong>${sanitize(g.title)}</strong>!</p>
+                <div style="background:rgba(255,255,255,0.2); padding:15px; border-radius:12px; display:inline-block;">Prize: <strong>${sanitize(g.prize)}</strong></div>
+                <p style="margin-top:20px; font-size:0.9rem;">We will contact you shortly to claim your prize!</p>
+            </div>
+        `;
+    } else {
+        let handlesStr = '';
+        const winnersList = g.winners || (g.winner ? [g.winner] : []);
+        if(winnersList.length > 0) {
+            handlesStr = winnersList.map(w => `@${sanitize(w.igHandle)}`).join(', ');
+        }
+        
+        contentHtml = `
+            <div class="loser-anim-card">
+                <button class="close-icon" onclick="document.getElementById('winner-anim-container').remove()" style="position:absolute; top:15px; right:15px; background:none; border:none; color:#888; font-size:2rem; cursor:pointer; z-index:10;">&times;</button>
+                <ion-icon name="gift-outline" class="sad-icon"></ion-icon>
+                <h2>Giveaway Ended</h2>
+                <p>The winner for <strong>${sanitize(g.title)}</strong> has been announced!</p>
+                <div style="background:#fff; padding:15px; border-radius:12px; display:inline-block; border:1px solid #eee; margin-bottom:15px; max-width:100%; overflow:hidden;">Winner(s): <strong>${handlesStr}</strong></div>
+                <p style="font-size:0.9rem; font-weight:600; color:#5c6cff;">Better luck next time! Stay tuned for more giveaways.</p>
+            </div>
+        `;
+    }
+    container.innerHTML = `<div class="popup-content">${contentHtml}</div>`;
+    document.body.appendChild(container);
+};
+
+window.checkGiveawayWinners = function(user) {
+    if(!user) return;
+    get(ref(database, `giveaway_user_entries/${user.uid}`)).then(snap => {
+        if(!snap.exists()) return;
+        const enteredGiveaways = snap.val();
+        onValue(ref(database, 'giveaways'), gSnap => {
+             if(!gSnap.exists()) return;
+             const seen = JSON.parse(localStorage.getItem(`zynex_seen_winners_${user.uid}`) || '{}');
+             gSnap.forEach(child => {
+                 const g = child.val();
+                 const gid = child.key;
+                 const winnersList = g.winners || (g.winner ? [g.winner] : []);
+                 
+                 if(!g.isActive && winnersList.length > 0 && enteredGiveaways[gid] && !seen[gid]) {
+                     const isWinner = winnersList.some(w => w.userId === user.uid);
+                     setTimeout(() => showWinnerPopup(g, isWinner), 1000);
+                     seen[gid] = true;
+                     localStorage.setItem(`zynex_seen_winners_${user.uid}`, JSON.stringify(seen));
+                 }
+             });
+        });
+    });
+};
+
 // ================= REVIEW SYSTEM =================
 
 window.openReviewPopup = function() {
@@ -1869,24 +2302,43 @@ window.submitReview = function() {
         .then(() => {
             showAlert("Thank you for your feedback!", "Review Submitted");
             closePopup('.review-popup');
-            loadPublicReviews(); // Refresh list
+                if (document.getElementById('public-reviews-grid')) loadPublicReviews();
+                if (document.getElementById('all-reviews-grid')) loadAllReviews();
         })
         .catch(err => showAlert(err.message, "Error"));
 };
 
-window.loadPublicReviews = function() {
-    const container = document.getElementById('public-reviews-grid');
+window.loadAllReviews = function() {
+    const container = document.getElementById('all-reviews-grid');
     if (!container) return;
 
-    // Get last 6 reviews
-    const reviewsQuery = query(ref(database, 'reviews'), limitToLast(6));
-    
-    get(reviewsQuery).then((snapshot) => {
+    // Fetch all reviews for the dedicated page
+    get(ref(database, 'reviews')).then((snapshot) => {
         if (snapshot.exists()) {
             container.innerHTML = '';
             const reviews = [];
-            snapshot.forEach(child => reviews.push(child.val()));
+            let totalRating = 0;
             
+            snapshot.forEach(child => {
+                const r = child.val();
+                reviews.push(r);
+                totalRating += (Number(r.rating) || 0);
+            });
+
+            const avgRating = (totalRating / reviews.length).toFixed(1);
+            
+            const avgNumEl = document.getElementById('avg-rating-number');
+            const avgStarsEl = document.getElementById('avg-rating-stars');
+            const totalCountEl = document.getElementById('total-reviews-count');
+
+            if (avgNumEl) avgNumEl.innerText = avgRating;
+            if (totalCountEl) totalCountEl.innerText = `Based on ${reviews.length} review${reviews.length > 1 ? 's' : ''}`;
+            if (avgStarsEl) {
+                const fullStars = Math.floor(avgRating);
+                const hasHalfStar = (avgRating - fullStars) >= 0.5;
+                avgStarsEl.innerHTML = Array(5).fill(0).map((_, i) => `<ion-icon name="${i < fullStars ? 'star' : (i === fullStars && hasHalfStar ? 'star-half-outline' : 'star-outline')}"></ion-icon>`).join('');
+            }
+
             // Show newest first
             reviews.reverse().forEach(r => {
                 const starsHtml = Array(5).fill(0).map((_, i) => 
@@ -1912,6 +2364,77 @@ window.loadPublicReviews = function() {
             });
         } else {
             container.innerHTML = '<p style="grid-column:1/-1; text-align:center; color:#999;">No reviews yet. Be the first to rate us!</p>';
+            const totalCountEl = document.getElementById('total-reviews-count');
+            const avgNumEl = document.getElementById('avg-rating-number');
+            if (totalCountEl) totalCountEl.innerText = 'No reviews yet';
+            if (avgNumEl) avgNumEl.innerText = '0.0';
+        }
+    });
+};
+
+window.loadPublicReviews = function() {
+    const container = document.getElementById('public-reviews-grid');
+    if (!container) return;
+
+    // Get last 6 reviews
+    const reviewsQuery = query(ref(database, 'reviews'), limitToLast(6));
+    
+    get(reviewsQuery).then((snapshot) => {
+        if (snapshot.exists()) {
+            container.innerHTML = '';
+            const reviews = [];
+            let totalRating = 0;
+            
+            snapshot.forEach(child => {
+                const r = child.val();
+                reviews.push(r);
+                totalRating += (Number(r.rating) || 0);
+            });
+
+            const avgRating = (totalRating / reviews.length).toFixed(1);
+            
+            // Update Summary Card
+            const avgNumEl = document.getElementById('avg-rating-number');
+            const avgStarsEl = document.getElementById('avg-rating-stars');
+            const totalCountEl = document.getElementById('total-reviews-count');
+
+            if (avgNumEl) avgNumEl.innerText = avgRating;
+            if (totalCountEl) totalCountEl.innerText = `Based on ${reviews.length} review${reviews.length > 1 ? 's' : ''}`;
+            if (avgStarsEl) {
+                const fullStars = Math.floor(avgRating);
+                const hasHalfStar = (avgRating - fullStars) >= 0.5;
+                avgStarsEl.innerHTML = Array(5).fill(0).map((_, i) => `<ion-icon name="${i < fullStars ? 'star' : (i === fullStars && hasHalfStar ? 'star-half-outline' : 'star-outline')}"></ion-icon>`).join('');
+            }
+
+            // Show newest first
+            reviews.reverse().forEach(r => {
+                const starsHtml = Array(5).fill(0).map((_, i) => 
+                    `<ion-icon name="${i < r.rating ? 'star' : 'star-outline'}"></ion-icon>`
+                ).join('');
+                
+                const initial = r.username ? r.username.charAt(0).toUpperCase() : 'U';
+
+                const html = `
+                    <div class="review-card">
+                        <div class="review-header">
+                            <div class="review-avatar">${initial}</div>
+                            <div class="review-info">
+                                <h4>${sanitize(r.username)}</h4>
+                                <span>Verified User</span>
+                            </div>
+                        </div>
+                        <div class="review-stars">${starsHtml}</div>
+                        <div class="review-text">"${sanitize(r.text)}"</div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+        } else {
+            container.innerHTML = '<p style="grid-column:1/-1; text-align:center; color:#999;">No reviews yet. Be the first to rate us!</p>';
+            const totalCountEl = document.getElementById('total-reviews-count');
+            const avgNumEl = document.getElementById('avg-rating-number');
+            if (totalCountEl) totalCountEl.innerText = 'No reviews yet';
+            if (avgNumEl) avgNumEl.innerText = '0.0';
         }
     });
 };
