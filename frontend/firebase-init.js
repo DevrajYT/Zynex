@@ -2322,19 +2322,46 @@ window.submitGiveawayEntry = function() {
 
 window.loadGiveawayPage = function() {
     const container = document.getElementById('giveaway-page-content');
-    if(!container) return;
-    
-    const user = auth.currentUser;
-    
-    if(window.gaPageUnsub) window.gaPageUnsub();
-    
+    const loadingState = document.getElementById('giveaway-loading-state');
+    const loggedOutMessage = document.getElementById('giveaway-logged-out-message');
+
+    if(!container || !loadingState || !loggedOutMessage) {
+        console.warn("Giveaway page elements not found.");
+        return; // Exit if elements are missing
+    }
+
+    // Always start by showing loading and hiding others
+    loadingState.style.display = 'block';
+    container.style.display = 'none';
+    loggedOutMessage.style.display = 'none';
+
+    const user = auth.currentUser; // Get current user from Firebase Auth
+
+    if(window.gaPageUnsub) {
+        window.gaPageUnsub(); // Unsubscribe from previous listener if any
+        window.gaPageUnsub = null;
+    }
+
+    if (!user) {
+        // User is logged out
+        loadingState.style.display = 'none';
+        loggedOutMessage.style.display = 'block';
+        container.innerHTML = ''; // Clear any previous content
+        return;
+    }
+
+    // User is logged in, proceed to load giveaways
     window.gaPageUnsub = onValue(ref(database, 'giveaways'), snap => {
+        loadingState.style.display = 'none'; // Hide loading once data starts coming
+        loggedOutMessage.style.display = 'none'; // Hide logged out message
+
         if(!snap.exists()) {
             container.innerHTML = `<div class="stat-card" style="text-align:center; padding: 60px 20px;">
                 <ion-icon name="sad-outline" style="font-size: 64px; color: #ccc; margin-bottom: 15px;"></ion-icon>
                 <h2>No Giveaways</h2>
                 <p style="color: #666; margin-top: 10px;">There are no giveaways currently. Keep an eye out for future updates!</p>
             </div>`;
+            container.style.display = 'block'; // Show container even if no giveaways
             return;
         }
 
@@ -2346,9 +2373,11 @@ window.loadGiveawayPage = function() {
             get(ref(database, `giveaway_user_entries/${user.uid}`)).then(entrySnap => {
                 const userEntries = entrySnap.exists() ? entrySnap.val() : {};
                 renderGiveawaysList(giveaways, userEntries, user, container);
+                container.style.display = 'block'; // Show container after rendering
             }).catch(err => {
                 console.error("Error fetching user entries:", err);
                 renderGiveawaysList(giveaways, {}, user, container);
+                container.style.display = 'block'; // Show container even on error
             });
         } else {
             renderGiveawaysList(giveaways, {}, null, container);
