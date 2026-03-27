@@ -30,7 +30,7 @@ const firebaseConfig = {
 
 // --- CONFIGURATION ---
 // window.BACKEND_URL = "http://localhost:10000"; // Local Testing
-window.BACKEND_URL = "https://zynex-backend.onrender.com"; // Production
+window.BACKEND_URL = "https://zynex-backend.onrender.com"; // Render Testing
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -2322,18 +2322,18 @@ window.submitGiveawayEntry = function() {
 
 window.loadGiveawayPage = function() {
     const container = document.getElementById('giveaway-page-content');
-    const loadingState = document.getElementById('giveaway-loading-state');
-    const loggedOutMessage = document.getElementById('giveaway-logged-out-message');
+    const loadingState = document.getElementById('giveaway-loading-state'); // This will be hidden once content is loaded
+    const loggedOutMessage = document.getElementById('giveaway-logged-out-message'); // This will be hidden
 
-    if(!container || !loadingState || !loggedOutMessage) {
+    if(!container || !loadingState || !loggedOutMessage) { // Ensure all elements exist
         console.warn("Giveaway page elements not found.");
         return; // Exit if elements are missing
     }
 
-    // Always start by showing loading and hiding others
+    // Always start by showing loading and hiding others, then show container
     loadingState.style.display = 'block';
-    container.style.display = 'none';
     loggedOutMessage.style.display = 'none';
+    container.style.display = 'block'; // Always show the main content container
 
     const user = auth.currentUser; // Get current user from Firebase Auth
 
@@ -2343,11 +2343,9 @@ window.loadGiveawayPage = function() {
     }
 
     if (!user) {
-        // User is logged out
-        loadingState.style.display = 'none';
-        loggedOutMessage.style.display = 'block';
-        container.innerHTML = ''; // Clear any previous content
-        return;
+        // If user is logged out, we still want to load and display giveaways.
+        // The buttons will reflect the logged-out state.
+        // No need to return here, proceed to fetch giveaways.
     }
 
     // User is logged in, proceed to load giveaways
@@ -2361,7 +2359,6 @@ window.loadGiveawayPage = function() {
                 <h2>No Giveaways</h2>
                 <p style="color: #666; margin-top: 10px;">There are no giveaways currently. Keep an eye out for future updates!</p>
             </div>`;
-            container.style.display = 'block'; // Show container even if no giveaways
             return;
         }
 
@@ -2373,14 +2370,13 @@ window.loadGiveawayPage = function() {
             get(ref(database, `giveaway_user_entries/${user.uid}`)).then(entrySnap => {
                 const userEntries = entrySnap.exists() ? entrySnap.val() : {};
                 renderGiveawaysList(giveaways, userEntries, user, container);
-                container.style.display = 'block'; // Show container after rendering
             }).catch(err => {
                 console.error("Error fetching user entries:", err);
                 renderGiveawaysList(giveaways, {}, user, container);
-                container.style.display = 'block'; // Show container even on error
             });
         } else {
             renderGiveawaysList(giveaways, {}, null, container);
+            // If user is null, renderGiveawaysList will handle the buttons
         }
     });
 };
@@ -2421,16 +2417,7 @@ function renderGiveawaysList(giveaways, userEntries, user, container) {
                 actionHtml = `<div class="ga-modern-action" style="text-align:center; padding:20px; color:#999; background:#f9f9f9; border-radius:12px;">Giveaway Ended</div>`;
             }
         } else {
-            if (!user) {
-                actionHtml = `
-                    <div class="ga-modern-action">
-                        <button class="cta" onclick="window.location.href='account.html?login=true'" style="width: 100%; background: #333; padding:15px; font-size:1.05rem;">
-                            <ion-icon name="lock-closed-outline"></ion-icon> Login to Enter
-                        </button>
-                        <p style="text-align:center; font-size:0.8rem; color:#888; margin-top:10px;">You must be logged in to participate.</p>
-                    </div>
-                `;
-            } else if (hasEntered) {
+            if (hasEntered) { // User is logged in AND has entered
                 actionHtml = `
                     <div class="ga-modern-action entered-badge" style="margin:0; padding:15px; flex-direction:row; justify-content:center;">
                         <ion-icon name="checkmark-circle" style="font-size:32px;"></ion-icon>
@@ -2440,7 +2427,7 @@ function renderGiveawaysList(giveaways, userEntries, user, container) {
                         </div>
                     </div>
                 `;
-            } else {
+            } else { // User is logged in OR logged out, but has NOT entered
                 actionHtml = `
                     <div class="ga-modern-action">
                         <button class="cta" onclick="openGiveawayPopup('${g.id}')" style="width: 100%; padding:15px; font-size:1.1rem; background: linear-gradient(135deg, #ff416c, #ff4b2b); box-shadow: 0 5px 15px rgba(255, 65, 108, 0.3);">
