@@ -2,6 +2,14 @@ const express = require('express');
 const router = express.Router();
 const { db, auth } = require('./firebaseAdmin');
 const verifyFirebaseToken = require('./auth');
+const { serviceConfig } = require('./serviceConfig');
+
+// @route   GET /api/services
+// @desc    Get service configuration
+// @access  Public
+router.get('/services', (req, res) => {
+    res.json(serviceConfig);
+});
 
 // @route   GET /api/system/announcement
 // @desc    Get global announcement

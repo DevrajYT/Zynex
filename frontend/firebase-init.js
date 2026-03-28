@@ -252,8 +252,8 @@ onAuthStateChanged(auth, (user) => {
         // --- Fetch data from DB and update UI ---
         const userRef = ref(database, "users/" + user.uid);
         get(userRef).then((snapshot) => {
-            if (snapshot.exists()) {
-                const data = snapshot.val();
+            if (snapshot.exists() && snapshot.val()) {
+                const data = snapshot.val() || {};
                 const orders = data.orders || {};
                 window.userOrders = orders; // Store orders for popup access
 
@@ -344,7 +344,9 @@ onAuthStateChanged(auth, (user) => {
                 const noOrdersMsg = document.getElementById('no-orders-msg');
                 const fullOrdersTable = document.getElementById('full-orders-table');
 
-                const orderList = Object.values(orders).sort((a, b) => b.timestamp - a.timestamp);
+                // Filter out any null/malformed orders to prevent runtime errors, then sort.
+                const orderList = Object.values(orders)
+                    .filter(o => o).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
                 if (ordersTableBody) {
                     if (orderList.length === 0) {
@@ -357,9 +359,9 @@ onAuthStateChanged(auth, (user) => {
                         
                         orderList.forEach(order => {
                             const date = new Date(order.timestamp).toLocaleDateString();
-                            const statusClass = order.status === 'completed' ? 'status-completed' : 'status-pending';
-                            const statusText = order.status === 'pending' ? 'In process' : order.status.charAt(0).toUpperCase() + order.status.slice(1);
-                            
+                            const status = order.status || 'pending';
+                            const statusClass = status === 'completed' ? 'status-completed' : 'status-pending';
+                            const statusText = status === 'pending' ? 'In process' : status.charAt(0).toUpperCase() + status.slice(1);
                             const row = `
                                 <tr>
                                     <td style="font-family:monospace; color:#666; font-size:0.85rem">#${order.id ? order.id.slice(-6) : '---'}</td>
@@ -388,14 +390,14 @@ onAuthStateChanged(auth, (user) => {
                 // == Update Dashboard Recent Orders ==
                 const recentOrdersBody = document.getElementById('recent-orders-body');
                 if (recentOrdersBody) {
-                    const recentOrderList = orderList.slice(0, 5);
                     if (orderList.length > 0) {
                         recentOrdersBody.innerHTML = '';
+                        const recentOrderList = orderList.slice(0, 5);
                         recentOrderList.forEach(order => {
                             const date = new Date(order.timestamp).toLocaleDateString();
-                            const statusClass = order.status === 'completed' ? 'status-completed' : 'status-pending';
-                            const statusText = order.status === 'pending' ? 'In process' : order.status.charAt(0).toUpperCase() + order.status.slice(1);
-                            
+                            const status = order.status || 'pending';
+                            const statusClass = status === 'completed' ? 'status-completed' : 'status-pending';
+                            const statusText = status === 'pending' ? 'In process' : status.charAt(0).toUpperCase() + status.slice(1);
                             const row = `
                                 <tr>
                                     <td>
@@ -409,7 +411,28 @@ onAuthStateChanged(auth, (user) => {
                             `;
                             recentOrdersBody.insertAdjacentHTML('beforeend', row);
                         });
+                    } else {
+                        // Explicitly set the "no orders" message if the list is empty
+                        recentOrdersBody.innerHTML = '<td colspan="4" style="text-align:center; color:#999; padding: 20px;">No recent orders.</td>';
                     }
+                }
+            } else {
+                // This block handles new users who are authenticated but have no data in the Realtime Database yet.
+                // It ensures the UI correctly shows a "zero" state.
+                const dashboardOrdersEl = document.getElementById('dashboard-orders');
+                if (dashboardOrdersEl) dashboardOrdersEl.innerText = '0';
+                const dashboardSpentEl = document.getElementById('dashboard-spent');
+                if (dashboardSpentEl) dashboardSpentEl.innerText = '₹0.00';
+
+                const recentOrdersBody = document.getElementById('recent-orders-body');
+                if (recentOrdersBody) recentOrdersBody.innerHTML = '<td colspan="4" style="text-align:center; color:#999; padding: 20px;">No recent orders.</td>';
+
+                const ordersTableBody = document.getElementById('orders-table-body');
+                if (ordersTableBody) {
+                    const noOrdersMsg = document.getElementById('no-orders-msg');
+                    const fullOrdersTable = document.getElementById('full-orders-table');
+                    if (fullOrdersTable) fullOrdersTable.style.display = 'none';
+                    if (noOrdersMsg) noOrdersMsg.style.display = 'block';
                 }
             }
         });
@@ -974,7 +997,7 @@ function generateAdminOrderRow(order, utrCounts) {
             <td style="font-family:monospace; color:#666">#${order.id ? order.id.slice(-6) : '---'}</td>
             <td>
                 <div style="font-weight:600">${sanitize(order.username)}</div>
-                <small style="color:#888; font-size:0.75rem; font-family:monospace">${order.userId.slice(0,8)}...</small>
+                <small style="color:#888; font-size:0.75rem; font-family:monospace">${order.userId ? order.userId.slice(0,8) + '...' : 'N/A'}</small>
             </td>
             <td>
                 <div>${order.service}</div>
@@ -1014,11 +1037,12 @@ window.loadAdminDashboard = async function(user) {
         const allOrders = await ordersRes.json();
         const allUsers = await usersRes.json();
 
-        window.allAdminOrders = allOrders; // Store for filtering
+        // Filter out any null/undefined entries that might come from the DB to prevent errors
+        window.allAdminOrders = allOrders.filter(o => o);
         window.allAdminUsers = allUsers; // Store for filtering
 
         // Render the main tables
-        renderAdminTable(allOrders);
+        renderAdminTable(window.allAdminOrders);
         renderAdminUsers(allUsers);
 
         // Initial load for tickets and giveaways
@@ -1537,6 +1561,7 @@ window.clearAnnouncement = function() {
 
 // ================== TICKET SYSTEM ==================
 let userTicketUnsub = null;
+let currentTicketListener = null; // FIX: Moved listener handle to outer scope
 window.openSupportCenter = function() {
     if(userTicketUnsub) { userTicketUnsub(); userTicketUnsub = null; }
 
@@ -1612,39 +1637,39 @@ window.showCreateTicket = function(orderId = '') {
     `;
 };
 
-window.submitTicket = function(orderId) {
+window.submitTicket = async function(orderId) { // REFACTOR: Use backend API
     const user = auth.currentUser;
     if(!user) return showAlert("Please login first.");
 
     const subject = document.getElementById('ticket-subject').value.trim();
     const message = document.getElementById('ticket-message').value.trim();
 
-    if(!subject || !message) return showAlert("Please fill all fields.");
+    if (!subject || !message) return showAlert("Please fill all fields.");
 
-    // FIX: Use push() to generate a unique ID for every ticket
-    // This prevents overwriting previous tickets from the same user
-    const newTicketRef = push(ref(database, 'tickets'));
-    const ticketData = {
-        id: newTicketRef.key,
-        userId: user.uid,
-        userEmail: user.email,
-        username: user.displayName || 'User',
-        subject: subject,
-        status: 'open',
-        orderId: orderId || null,
-        timestamp: Date.now(),
-        replies: {
-            [Date.now()]: { sender: 'user', message: message, timestamp: Date.now() }
+    try {
+        const token = await user.getIdToken();
+        const response = await fetch(`${BACKEND_URL}/api/tickets`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ subject, message, orderId: orderId || null })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.msg || 'Failed to create ticket.');
         }
-    };
 
-    set(newTicketRef, ticketData).then(() => {
         showAlert("Ticket created successfully!", "Success");
         showUserTickets();
-    });
+    } catch (error) {
+        showAlert(error.message, "Error");
+    }
 };
 
-window.showUserTickets = function() {
+window.showUserTickets = async function() { // REFACTOR: Use backend API
     if(userTicketUnsub) { userTicketUnsub(); userTicketUnsub = null; }
 
     const user = auth.currentUser;
@@ -1659,23 +1684,20 @@ window.showUserTickets = function() {
         </div>
     `;
 
-    get(ref(database, 'tickets')).then(snap => {
-        const list = document.getElementById('user-ticket-list');
-        if(!list) return;
+    const list = document.getElementById('user-ticket-list');
+    if (!list) return;
+
+    try {
+        const token = await user.getIdToken();
+        const response = await fetch(`${BACKEND_URL}/api/tickets`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Failed to fetch tickets.');
+
+        const tickets = await response.json();
         list.innerHTML = '';
 
-        if(!snap.exists()) {
-            list.innerHTML = '<p style="text-align:center; color:#999">No tickets found.</p>';
-            return;
-        }
-
-        const tickets = [];
-        snap.forEach(child => {
-            const t = child.val();
-            if(t.userId === user.uid) tickets.push(t);
-        });
-
-        if(tickets.length === 0) {
+        if (tickets.length === 0) {
             list.innerHTML = '<p style="text-align:center; color:#999">No tickets found.</p>';
             return;
         }
@@ -1695,13 +1717,14 @@ window.showUserTickets = function() {
                 </div>
             `;
         });
-    });
+    } catch (error) {
+        list.innerHTML = `<p style="text-align:center; color:red;">Error: ${error.message}</p>`;
+    }
 };
 
 window.viewUserTicket = function(ticketId) {
     const content = document.querySelector('.popup-content.help');
     
-    let currentTicketListener = null;
     // Stop listening to previous ticket if any
     if(currentTicketListener) currentTicketListener();
     if(userTicketUnsub) { userTicketUnsub(); userTicketUnsub = null; }
@@ -1909,27 +1932,60 @@ window.sendAdminTicketReply = function() {
     if(currentAdminTicketId) replyToTicket(currentAdminTicketId, 'admin');
 };
 
-window.toggleTicketStatus = function() {
+window.toggleTicketStatus = async function() { // REFACTOR: Use backend API
     if(!currentAdminTicketId) return;
     const t = window.allAdminTickets.find(x => x.id === currentAdminTicketId);
+    if (!t) return;
     const newStatus = t.status === 'open' ? 'closed' : 'open';
     
-    update(ref(database, `tickets/${currentAdminTicketId}`), { status: newStatus }).then(() => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+        const token = await user.getIdToken();
+        const response = await fetch(`${BACKEND_URL}/api/admin/tickets/${currentAdminTicketId}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ status: newStatus })
+        });
+
+        if (!response.ok) throw new Error('Failed to update status.');
+
         t.status = newStatus;
-        loadAdminTickets(); // Refresh table
+        renderAdminTicketsTable(window.allAdminTickets); // Just re-render, no need to fetch all again
         showAlert(`Ticket ${newStatus}.`, "Success");
-    });
+        // The popup will update via its own onValue listener
+    } catch (error) {
+        showAlert(error.message, "Error");
+    }
 };
 
-window.deleteAdminTicket = function() {
+window.deleteAdminTicket = function() { // REFACTOR: Use backend API
     if(!currentAdminTicketId) return;
-    showConfirm("Permanently delete this ticket?", () => {
-        remove(ref(database, `tickets/${currentAdminTicketId}`))
-            .then(() => {
-                closePopup('.admin-ticket-popup');
-                showAlert("Ticket deleted.", "Deleted");
-            })
-            .catch(e => showAlert(e.message, "Error"));
+    showConfirm("Permanently delete this ticket?", async () => {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch(`${BACKEND_URL}/api/admin/tickets/${currentAdminTicketId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!response.ok) throw new Error('Failed to delete ticket.');
+
+            closePopup('.admin-ticket-popup');
+            // Remove from local cache and re-render
+            window.allAdminTickets = window.allAdminTickets.filter(t => t.id !== currentAdminTicketId);
+            renderAdminTicketsTable(window.allAdminTickets);
+            showAlert("Ticket deleted.", "Deleted");
+        } catch (error) {
+            showAlert(error.message, "Error");
+        }
     });
 };
 

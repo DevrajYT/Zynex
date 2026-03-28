@@ -18,7 +18,8 @@ router.get('/orders', async (req, res) => {
             return res.json([]);
         }
 
-        const allOrders = Object.values(snapshot.val());
+        // Filter out any null/malformed entries that might exist in the database
+        const allOrders = Object.values(snapshot.val()).filter(order => order && order.userId);
 
         // To enrich orders with usernames, we fetch all users once.
         const usersRef = db.ref('users');
