@@ -145,7 +145,7 @@ onAuthStateChanged(auth, (user) => {
         if (headerAuth) {
             const username = user.displayName || user.email.split("@")[0];
             headerAuth.innerHTML = `
-      <div class="header-user" onclick="window.location.href='account.html'">
+      <div class="header-user" onclick="window.location.href='account'">
           <ion-icon name="person-outline"></ion-icon>
           <span>${sanitize(username)}</span>
       </div>`;
@@ -199,7 +199,7 @@ onAuthStateChanged(auth, (user) => {
                 window.userOrders = orders; // Store orders for popup access
 
                 // == New Logic: Review prompt on Orders Page Load ==
-                const isOrdersPage = window.location.pathname.includes('orders.html');
+                const isOrdersPage = window.location.pathname.includes('/orders');
                 if (isOrdersPage) {
                     const promptedOrdersKey = `zynex_review_prompted_orders_${user.uid}`;
                     const promptedOrders = JSON.parse(localStorage.getItem(promptedOrdersKey) || '[]');
@@ -358,7 +358,7 @@ onAuthStateChanged(auth, (user) => {
         // --- Logged-out UI State ---
         if (headerAuth) {
             headerAuth.innerHTML = `
-      <button class="get-started-btn" onclick="window.location.href='account.html?login=true'">
+      <button class="get-started-btn" onclick="window.location.href='account?login=true'">
         Login
       </button>`;
         }
@@ -373,12 +373,12 @@ onAuthStateChanged(auth, (user) => {
 
         // Redirect if on admin page and logged out
         if (document.getElementById('admin-orders-body')) {
-            window.location.href = 'account.html';
+            window.location.href = 'account';
         }
     }
     
     // Refresh Giveaway Page state dynamically on login/logout
-    if (window.location.pathname.includes('giveaway.html') && window.loadGiveawayPage) {
+    if (window.location.pathname.includes('/giveaway') && window.loadGiveawayPage) {
         window.loadGiveawayPage();
     }
     
@@ -447,7 +447,7 @@ window.deleteAccount = function() {
         const user = auth.currentUser;
         deleteUser(user).then(() => {
             showAlert("Account deleted.", "Goodbye");
-            window.location.href = "index.html";
+            window.location.href = "/";
         }).catch(e => showAlert("Error: " + e.message + "\n(You may need to re-login to perform this action)"));
     });
 };
@@ -775,10 +775,10 @@ window.processPayment = async function() {
             showAlert(`Your order #${orderId.slice(-6)} has been placed successfully! We will verify your payment shortly.`, 'Order Placed!');
             closePopup('.payment-popup');
             // Optionally redirect to orders page
-            if (window.location.pathname.includes('orders.html')) {
+            if (window.location.pathname.includes('/orders')) {
                 window.location.reload();
             } else {
-                window.location.href = 'orders.html';
+                window.location.href = 'orders';
             }
         }, 
         (errorMsg) => { // onError

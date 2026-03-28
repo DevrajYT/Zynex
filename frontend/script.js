@@ -74,18 +74,26 @@ document.addEventListener('keydown', e=>{
 
 // ===== AUTO SIDEBAR ACTIVE LINK =====
 document.addEventListener("DOMContentLoaded", function () {
-
-  const links = document.querySelectorAll(".nav-list a");
-  const currentPage = window.location.pathname.split("/").pop();
-
-  links.forEach(link => {
-    const linkPage = link.getAttribute("href");
-
-    if (linkPage === currentPage) {
-      link.classList.add("active");
+    const links = document.querySelectorAll(".nav-list a");
+    const currentPath = window.location.pathname; // e.g., "/", "/services"
+  
+    // Find the link that best matches the current path
+    let activeLink = null;
+    if (currentPath === "/" || currentPath === "/index") {
+      activeLink = document.querySelector('.nav-list a[href="index"]');
+    } else {
+      // For paths like "/services", find a link with href="services"
+      const pageName = currentPath.substring(1); // "services"
+      activeLink = document.querySelector(`.nav-list a[href="${pageName}"]`);
     }
-  });
-
+  
+    // Remove active class from all links (as they might be hardcoded in HTML)
+    links.forEach(link => link.classList.remove("active"));
+  
+    // Add active class to the matched link
+    if (activeLink) {
+      activeLink.classList.add("active");
+    }
 });
 
 // ===== AUTO-OPEN / HIGHLIGHT SERVICE FROM URL =====
@@ -220,7 +228,7 @@ window.showPrompt = function(msg, onSubmit) {
 };
 
 // ================= DASHBOARD NAVIGATION HELPERS =================
-window.goToService = function(serviceId, targetPage = 'services.html') {
-    // Redirect to the services page with the target service as a query parameter
+window.goToService = function(serviceId, targetPage = 'services') {
+    // Redirect to the services page with the target service as a query parameter. Changed default targetPage to 'services'
     window.location.href = `${targetPage}?service=${encodeURIComponent(serviceId)}`;
 };

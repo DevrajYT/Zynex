@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path'); // Import path module
+const fs = require('fs');     // Import fs module
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
@@ -38,6 +40,28 @@ app.use(cors({
 }));
 
 app.use(express.json()); // To parse JSON bodies
+
+// --- Serve Static Frontend Files ---
+// This middleware serves files from the 'frontend' directory.
+// It will automatically serve 'index.html' for requests to the root '/'.
+app.use(express.static(path.join(__dirname, '../frontend')));
+
+// --- Custom Middleware for Extensionless HTML Files ---
+// This middleware rewrites requests for paths like '/services' to serve 'services.html'.
+app.use((req, res, next) => {
+    // If the request already has a file extension (e.g., .css, .js, .png) or is an API call, skip this middleware.
+    if (req.path.includes('.') || req.path.startsWith('/api')) {
+        return next();
+    }
+
+    const htmlFilePath = path.join(__dirname, '../frontend', req.path + '.html');
+
+    // Check if the corresponding .html file exists.
+    fs.access(htmlFilePath, fs.constants.F_OK, (err) => {
+        if (err) next(); // If not found, continue to the next middleware (e.g., 404 handler).
+        else res.sendFile(htmlFilePath); // If found, serve the .html file.
+    });
+});
 
 // --- API Routes ---
 app.use('/api', userRoutes);
