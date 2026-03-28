@@ -28,24 +28,24 @@
 <body>
 
     <aside class="sidebar" aria-label="Sidebar">
-        <div class="brand"><a href="index">Zynex</a></div>
+        <div class="brand"><a href="index.html">Zynex</a></div>
 
         <ul class="nav-list">
-            <li><a href="index"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
-            <li><a href="services"><ion-icon name="cube-outline"></ion-icon>Services</a></li>
-            <li><a href="orders"><ion-icon name="notifications-outline"></ion-icon>Orders</a></li>
-            <li><a href="giveaway"><ion-icon name="gift-outline"></ion-icon>Giveaway</a></li>
-            <li><a href="reviews"><ion-icon name="star-outline"></ion-icon>Reviews</a></li>
+            <li><a class="active" href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
+            <li><a href="services.html"><ion-icon name="cube-outline"></ion-icon>Services</a></li>
+            <li><a href="orders.html"><ion-icon name="notifications-outline"></ion-icon>Orders</a></li>
+            <li><a href="giveaway.html"><ion-icon name="gift-outline"></ion-icon>Giveaway</a></li>
+            <li><a href="reviews.html"><ion-icon name="star-outline"></ion-icon>Reviews</a></li>
         </ul>
 
         <div class="section-title">AUTH</div>
         <ul class="nav-list">
-            <li><a href="account"><ion-icon name="person-outline"></ion-icon>Profile</a></li>
+            <li><a href="account.html"><ion-icon name="person-outline"></ion-icon>Profile</a></li>
         </ul>
 
         <div id="admin-section-title" class="section-title" style="display:none">ADMIN</div>
         <ul id="admin-nav-list" class="nav-list" style="display:none">
-            <li><a href="admin"><ion-icon name="server-outline"></ion-icon>Server <span id="admin-sidebar-badge" class="nav-badge">0</span></a></li>
+            <li><a href="admin.html"><ion-icon name="server-outline"></ion-icon>Server <span id="admin-sidebar-badge" class="nav-badge">0</span></a></li>
         </ul>
     </aside>
 
@@ -115,12 +115,12 @@
                         <div class="stat-card">
                             <h4>Active Orders</h4>
                             <p class="stat-value" id="dashboard-orders">0</p>
-                            <a href="orders" class="stat-link">View All Orders</a>
+                            <a href="orders.html" class="stat-link">View All Orders</a>
                         </div>
                         <div class="stat-card">
                             <h4>Total Spent</h4>
                             <p class="stat-value" id="dashboard-spent">₹0.00</p>
-                            <a href="orders" class="stat-link">View History</a>
+                            <a href="orders.html" class="stat-link">View History</a>
                         </div>
                     </div>
                     <div class="stat-card" style="margin-top: 30px;">
@@ -135,12 +135,12 @@
                 </div>
                 <div class="dashboard-sidebar">
                     <div class="quick-actions-grid" style="grid-template-columns: 1fr; margin-top:0;">
-                        <a href="services" class="action-card">
+                        <a href="services.html" class="action-card">
                             <ion-icon name="add-circle-outline"></ion-icon>
                             <h3>Place a New Order</h3>
                             <p>Browse our services and start a new campaign.</p>
                         </a>
-                        <a href="orders" class="action-card">
+                        <a href="orders.html" class="action-card">
                             <ion-icon name="list-outline"></ion-icon>
                             <h3>My Orders</h3>
                             <p>Track the status of your active and past orders.</p>
@@ -159,7 +159,7 @@
                         Get real, high-quality engagement for Instagram & YouTube.
                         Boost your followers, likes, views, and subscribers effortlessly.
                     </p>
-                    <a href="services" class="cta hero-cta">Get Started Now</a>
+                    <a href="services.html" class="cta hero-cta">Get Started Now</a>
                 </div>
                 <div class="hero-visuals">
                     <div class="icon-float" style="--i:1;"><ion-icon name="logo-instagram"></ion-icon></div>
@@ -306,7 +306,7 @@
             <button class="close-icon" aria-label="Close" onclick="closePopup('.login-required-popup')">&times;</button>
             <h2 style="margin-bottom:15px">Login Required</h2>
             <p style="color:#666; margin-bottom:25px">Please log in to proceed with your order.</p>
-            <button class="btn-white-primary" style="width:100%" onclick="window.location.href='account?login=true'"><ion-icon name="log-in-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Login to Continue</button>
+            <button class="btn-white-primary" style="width:100%" onclick="window.location.href='account.html?login=true'"><ion-icon name="log-in-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Login to Continue</button>
         </div>
     </div>
 

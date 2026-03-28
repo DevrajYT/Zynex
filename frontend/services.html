@@ -17,24 +17,24 @@
 <body>
 
     <aside class="sidebar" aria-label="Sidebar">
-        <div class="brand"><a href="index">Zynex</a></div>
+        <div class="brand"><a href="index.html">Zynex</a></div>
 
         <ul class="nav-list">
-            <li><a href="index"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
-            <li><a href="services"><ion-icon name="cube-outline"></ion-icon>Services</a></li>
-            <li><a href="orders"><ion-icon name="notifications-outline"></ion-icon>Orders</a></li>
-            <li><a href="giveaway"><ion-icon name="gift-outline"></ion-icon>Giveaway</a></li>
-            <li><a href="reviews"><ion-icon name="star-outline"></ion-icon>Reviews</a></li>
+            <li><a href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
+            <li><a class="active" href="services.html"><ion-icon name="cube-outline"></ion-icon>Services</a></li>
+            <li><a href="orders.html"><ion-icon name="notifications-outline"></ion-icon>Orders</a></li>
+            <li><a href="giveaway.html"><ion-icon name="gift-outline"></ion-icon>Giveaway</a></li>
+            <li><a href="reviews.html"><ion-icon name="star-outline"></ion-icon>Reviews</a></li>
         </ul>
 
         <div class="section-title">AUTH</div>
         <ul class="nav-list">
-            <li><a href="account"><ion-icon name="person-outline"></ion-icon>Profile</a></li>
+            <li><a href="account.html"><ion-icon name="person-outline"></ion-icon>Profile</a></li>
         </ul>
 
         <div id="admin-section-title" class="section-title" style="display:none">ADMIN</div>
         <ul id="admin-nav-list" class="nav-list" style="display:none">
-            <li><a href="admin"><ion-icon name="server-outline"></ion-icon>Server <span id="admin-sidebar-badge" class="nav-badge">0</span></a></li>
+            <li><a href="admin.html"><ion-icon name="server-outline"></ion-icon>Server <span id="admin-sidebar-badge" class="nav-badge">0</span></a></li>
         </ul>
     </aside>
 
@@ -208,7 +208,7 @@
         <div class="popup-content" style="max-width:350px; text-align:center">
             <h2 style="margin-bottom:15px">Login Required</h2>
             <p style="color:#666; margin-bottom:25px">Please log in to proceed with your order.</p>
-            <button class="btn-white-primary" style="width:100%" onclick="window.location.href='account?login=true'"><ion-icon name="log-in-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Login to Continue</button>
+            <button class="btn-white-primary" style="width:100%" onclick="window.location.href='account.html?login=true'"><ion-icon name="log-in-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Login to Continue</button>
         </div>
     </div>
 
