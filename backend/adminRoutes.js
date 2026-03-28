@@ -11,31 +11,30 @@ const { costPrices } = require('./serviceConfig');
 // @access  Admin
 router.get('/orders', async (req, res) => {
     try {
-        // OPTIMIZED: Read from the denormalized /all_orders path instead of iterating all users.
-        const ordersRef = db.ref('all_orders');
-        const snapshot = await ordersRef.once('value');
+        const usersRef = db.ref('users');
+        const snapshot = await usersRef.once('value');
         if (!snapshot.exists()) {
             return res.json([]);
         }
 
-        // Filter out any null/malformed entries that might exist in the database
-        const allOrders = Object.values(snapshot.val()).filter(order => order && order.userId);
+        const users = snapshot.val();
+        let allOrders = [];
 
-        // To enrich orders with usernames, we fetch all users once.
-        const usersRef = db.ref('users');
-        const usersSnapshot = await usersRef.once('value');
-        const users = usersSnapshot.val() || {};
-
-        const ordersWithUsername = allOrders.map(order => {
-            const userData = users[order.userId] || {};
-            return {
-                ...order,
-                username: userData.username || userData.email || 'Unknown User'
-            };
+        Object.keys(users).forEach(userId => {
+            const userData = users[userId];
+            if (userData.orders) {
+                Object.values(userData.orders).forEach(order => {
+                    allOrders.push({
+                        ...order,
+                        userId: userId,
+                        username: userData.username || userData.email
+                    });
+                });
+            }
         });
 
-        ordersWithUsername.sort((a, b) => b.timestamp - a.timestamp);
-        res.json(ordersWithUsername);
+        allOrders.sort((a, b) => b.timestamp - a.timestamp);
+        res.json(allOrders);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');
@@ -61,12 +60,11 @@ router.put('/orders/:userId/:orderId', async (req, res) => {
             return res.status(404).json({ msg: 'Order not found.' });
         }
 
-        const originalOrder = snapshot.val();
         const updates = {};
-        if (status !== undefined) updates.status = status;
-        if (link !== undefined) updates.link = link;
-        if (utr !== undefined) updates.utr = utr;
-        if (cancelledReason !== undefined) updates.cancelledReason = cancelledReason;
+        if (status) updates.status = status;
+        if (link) updates.link = link;
+        if (utr) updates.utr = utr;
+        if (cancelledReason) updates.cancelledReason = cancelledReason;
         if (cancelledStage !== undefined) updates.cancelledStage = cancelledStage;
         
         // If moving out of cancelled state, clear cancellation reasons
@@ -75,15 +73,7 @@ router.put('/orders/:userId/:orderId', async (req, res) => {
             updates.cancelledStage = null;
         }
 
-        const updatedOrder = { ...originalOrder, ...updates };
-
-        // Use a multi-path update for atomicity
-        const multiPathUpdates = {};
-        multiPathUpdates[`users/${userId}/orders/${orderId}`] = updatedOrder;
-        multiPathUpdates[`all_orders/${orderId}`] = updatedOrder;
-
-        await db.ref().update(multiPathUpdates);
-
+        await orderRef.update(updates);
         res.json({ msg: 'Order updated successfully.' });
     } catch (err) {
         console.error(err.message);
@@ -97,12 +87,8 @@ router.put('/orders/:userId/:orderId', async (req, res) => {
 router.delete('/orders/:userId/:orderId', async (req, res) => {
     const { userId, orderId } = req.params;
     try {
-        // Use a multi-path update to remove from both locations atomically
-        const multiPathUpdates = {};
-        multiPathUpdates[`users/${userId}/orders/${orderId}`] = null;
-        multiPathUpdates[`all_orders/${orderId}`] = null;
-
-        await db.ref().update(multiPathUpdates);
+        const orderRef = db.ref(`users/${userId}/orders/${orderId}`);
+        await orderRef.remove();
         res.json({ msg: 'Order deleted successfully.' });
     } catch (err) {
         console.error(err.message);
@@ -119,7 +105,7 @@ router.get('/stats', async (req, res) => {
         const usersRef = db.ref('users');
         const snapshot = await usersRef.once('value');
         if (!snapshot.exists()) {
-            return res.json({ totalRevenue: 0, totalProfit: 0, totalOrders: 0, pendingCount: 0, profitAdjustment: 0, openTicketsCount: 0 });
+            return res.json({ totalRevenue: 0, totalProfit: 0, totalOrders: 0, pendingCount: 0 });
         }
 
         const users = snapshot.val();
@@ -160,66 +146,8 @@ router.get('/stats', async (req, res) => {
             }
         });
 
-        // Fetch reset point and manual adjustment
-        const metaSnapshot = await db.ref('system/profit_meta').once('value');
-        const adjustmentSnapshot = await db.ref('system/profit_adjustment').once('value');
-
-        const { revenueAtReset = 0, costAtReset = 0 } = metaSnapshot.val() || {};
-        const profitAdjustment = adjustmentSnapshot.val() || 0;
-
-        const profitForPeriod = (completedRevenue - revenueAtReset) - (completedCost - costAtReset);
-        const finalProfit = profitForPeriod + profitAdjustment;
-
-        res.json({ 
-            totalRevenue, 
-            totalProfit: finalProfit, 
-            totalOrders, 
-            pendingCount, 
-            openTicketsCount,
-            profitAdjustment // send manual adjustment value
-        });
-
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
-    }
-});
-
-// @route   POST /api/admin/profit/reset
-// @desc    Resets the profit calculation point
-// @access  Admin
-router.post('/profit/reset', async (req, res) => {
-    try {
-        const usersRef = db.ref('users');
-        const snapshot = await usersRef.once('value');
-        
-        let completedRevenue = 0;
-        let completedCost = 0;
-
-        if (snapshot.exists()) {
-            const users = snapshot.val();
-            Object.values(users).forEach(user => {
-                if (user.orders) {
-                    Object.values(user.orders).forEach(o => {
-                        if (o.status === 'completed') {
-                            completedRevenue += (parseFloat(o.totalPrice) || 0);
-                            if (costPrices[o.service] && costPrices[o.service][o.option] && o.amount) {
-                                const unitCost = costPrices[o.service][o.option];
-                                completedCost += (parseInt(o.amount) * unitCost);
-                            }
-                        }
-                    });
-                }
-            });
-        }
-
-        const updates = {};
-        updates['system/profit_meta'] = { revenueAtReset: completedRevenue, costAtReset: completedCost };
-        updates['system/profit_adjustment'] = 0; // Also reset manual adjustments
-
-        await db.ref().update(updates);
-
-        res.json({ msg: 'Profit tracking has been reset.' });
+        const profit = completedRevenue - completedCost;
+        res.json({ totalRevenue, totalProfit: profit, totalOrders, pendingCount, openTicketsCount });
 
     } catch (err) {
         console.error(err.message);

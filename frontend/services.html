@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Services — Smmzynex</title>
+    <title>Services — Zynex</title>
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" href="logo.png">
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
@@ -17,7 +17,7 @@
 <body>
 
     <aside class="sidebar" aria-label="Sidebar">
-        <div class="brand"><a href="index.html">Smmzynex</a></div>
+        <div class="brand"><ion-icon name="layers-outline"></ion-icon><a href="index.html">Zynex</a></div>
 
         <ul class="nav-list">
             <li><a href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
@@ -107,7 +107,7 @@
 
     <div class="popup help-popup" role="dialog" aria-modal="true" aria-hidden="true">
         <div class="popup-content help">
-            <button class="close-icon" aria-label="Close" onclick="closePopup('.help-popup')">;</button>
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.help-popup')">&times;</button>
             <!-- Content injected via JS openSupportCenter() -->
             <script>
                 document.addEventListener('DOMContentLoaded', () => {
@@ -140,7 +140,7 @@
                         <small id="error-link" class="error-text" style="color:#ff4d4f; display:none; margin-top:6px; font-size:0.85rem;"></small>
                     </div>
 
-                    <div id="public-account-note" style="background: #fff8e1; border: 1px solid #ffe082; color: #f57c00; padding: 10px 12px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                    <div style="background: #fff8e1; border: 1px solid #ffe082; color: #f57c00; padding: 10px 12px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
                         <ion-icon name="warning-outline" style="font-size: 1.2rem; flex-shrink: 0;"></ion-icon> <strong>Note:</strong> Your account must be public. Private accounts cannot be processed.
                     </div>
 
@@ -163,8 +163,8 @@
                 </div>
 
                 <div style="display:flex; flex-direction:column; gap:12px;">
-                    <button class="cta" style="width:100%" onclick="submitOrder()"><ion-icon name="card-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Proceed to Payment</button>
-                    <button class="btn-outline" style="width:100%" onclick="backToOptions()"><ion-icon name="arrow-back-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Back to Options</button>
+                    <button class="btn-white-primary" style="width:100%" onclick="submitOrder()"><ion-icon name="card-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Proceed to Payment</button>
+                    <button class="btn-white-secondary" style="width:100%" onclick="backToOptions()"><ion-icon name="arrow-back-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Back to Options</button>
                 </div>
             </div>
         </div>
@@ -173,6 +173,7 @@
     <!-- Payment & UTR Verification Popup -->
     <div class="popup payment-popup" role="dialog" aria-hidden="true">
         <div class="popup-content payment-content" style="max-width:420px; padding: 25px 20px; width: 95%;">
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.payment-popup')">&times;</button>
             <h2 style="text-align:center; font-size:1.6rem; margin-bottom:5px; color:#333;">Complete Payment</h2>
             <p style="text-align:center; color:#666; font-size:0.9rem; margin-bottom:25px;">Scan the QR code below to pay</p>
             
@@ -194,10 +195,10 @@
                 <small id="error-utr" class="error-text" style="color:#ff4d4f; display:none; margin-top:6px; font-size:0.85rem; text-align:center;"></small>
             </div>
             <div style="display:flex; flex-direction:column; gap:12px;">
-                <button id="btn-verify-payment" class="cta" style="width:100%" onclick="processPayment()"><ion-icon name="checkmark-circle-outline" style="margin-right:8px; font-size:1.3rem;"></ion-icon> Verify & Submit Order</button>
+                <button id="btn-verify-payment" class="btn-white-success" style="width:100%" onclick="processPayment()"><ion-icon name="checkmark-circle-outline" style="margin-right:8px; font-size:1.3rem;"></ion-icon> Verify & Submit Order</button>
                 <div style="display:flex; gap:12px;">
-                    <button class="btn-outline" style="flex:1" onclick="backToOrder()"><ion-icon name="arrow-back-outline" style="margin-right:5px;"></ion-icon> Back</button>
-                    <button class="btn-outline" style="flex:1" onclick="openPopup('.tutorial-popup')"><ion-icon name="help-circle-outline" style="margin-right:5px;"></ion-icon> How to Pay?</button>
+                    <button class="btn-white-secondary" style="flex:1" onclick="backToOrder()"><ion-icon name="arrow-back-outline" style="margin-right:5px;"></ion-icon> Back</button>
+                    <button class="btn-white-info" style="flex:1" onclick="openPopup('.tutorial-popup')"><ion-icon name="help-circle-outline" style="margin-right:5px;"></ion-icon> How to Pay?</button>
                 </div>
             </div>
         </div>
@@ -206,6 +207,7 @@
     <!-- Login Required Popup -->
     <div class="popup login-required-popup" role="dialog" aria-hidden="true">
         <div class="popup-content" style="max-width:350px; text-align:center">
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.login-required-popup')">&times;</button>
             <h2 style="margin-bottom:15px">Login Required</h2>
             <p style="color:#666; margin-bottom:25px">Please log in to proceed with your order.</p>
             <button class="btn-white-primary" style="width:100%" onclick="window.location.href='account.html?login=true'"><ion-icon name="log-in-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Login to Continue</button>
@@ -242,6 +244,7 @@
 
     <div class="popup review-popup" aria-hidden="true">
         <div class="popup-content" style="max-width: 400px;">
+            <button class="close-icon" aria-label="Close" onclick="closePopup('.review-popup')">&times;</button>
             <h2 style="text-align: center;">Write a Review</h2>
             <div class="star-rating-input">
                 <ion-icon name="star-outline" data-value="1" onclick="setRating(1)"></ion-icon>

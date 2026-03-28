@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Giveaways — Smmzynex</title>
+    <title>Giveaways — Zynex</title>
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" href="logo.png">
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
@@ -17,7 +17,7 @@
 <body>
 
     <aside class="sidebar" aria-label="Sidebar">
-        <div class="brand"><a href="index.html">Smmzynex</a></div>
+        <div class="brand"><ion-icon name="layers-outline"></ion-icon><a href="index.html">Zynex</a></div>
 
         <ul class="nav-list">
             <li><a href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
@@ -52,22 +52,9 @@
         <div style="margin-top:88px"></div>
         
         <div id="giveaway-page-content" style="max-width: 1000px; margin: 0 auto;">
-            <!-- Giveaway details will be loaded here by JS -->
-        </div>
-
-        <!-- Loading State -->
-        <div id="giveaway-loading-state" style="max-width: 1000px; margin: 0 auto;">
             <div class="stat-card" style="text-align:center; padding: 50px;">
                 <ion-icon name="sync-outline" class="spin" style="font-size: 32px; color: #5c6cff;"></ion-icon>
                 <p style="color: #999; margin-top: 15px;">Loading giveaway details...</p>
-            </div>
-        </div>
-
-        <!-- Logged Out Message -->
-        <div id="giveaway-logged-out-message" style="display:none; text-align:center; padding:60px 20px; color:#555;"> 
-            <ion-icon name="lock-closed-outline" style="font-size:52px; margin-bottom:18px; color:#5c6cff;"></ion-icon>
-            <h2>Please sign in to view and enter giveaways</h2>
-            <button class="cta" onclick="window.location.href='account.html?login=true'" style="margin-top:20px;">Go to Login</button>
             </div>
         </div>
     </main>
@@ -103,12 +90,6 @@
             <button class="btn-white-primary" style="width: 100%; margin-top: 15px; border-color: #ff416c; color: #ff416c;" onmouseover="this.style.background='#ff416c'; this.style.color='#fff';" onmouseout="this.style.background='#fff'; this.style.color='#ff416c';" onclick="submitGiveawayEntry()">
                 <ion-icon name="gift-outline" style="margin-right:8px;"></ion-icon> Submit Entry
             </button>
-    <!-- Login Required Popup (Copied from services.html) -->
-    <div class="popup login-required-popup" role="dialog" aria-hidden="true">
-        <div class="popup-content" style="max-width:350px; text-align:center">
-            <h2 style="margin-bottom:15px">Login Required</h2>
-            <p style="color:#666; margin-bottom:25px">Please log in to enter the giveaway.</p>
-            <button class="btn-white-primary" style="width:100%" onclick="window.location.href='account.html?login=true'"><ion-icon name="log-in-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Login to Continue</button>
         </div>
     </div>
 

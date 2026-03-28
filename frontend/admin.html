@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Server Admin — Smmzynex</title>
+    <title>Server Admin — Zynex</title>
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" href="logo.png">
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
@@ -34,7 +34,7 @@
 <body>
 
     <aside class="sidebar" aria-label="Sidebar">
-        <div class="brand"><a href="index.html">Smmzynex</a></div>
+        <div class="brand"><ion-icon name="layers-outline"></ion-icon><a href="index.html">Zynex</a></div>
 
         <ul class="nav-list">
             <li><a href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
@@ -97,22 +97,6 @@
                     <div class="stat-card-icon orange"><ion-icon name="alert-circle-outline"></ion-icon></div>
                 </div>
                 <p class="stat-value" id="admin-pending-orders" style="color:#ff9800; margin-top:15px;">0</p>
-            </div>
-            <!-- New Profit Adjustment Card -->
-            <div class="stat-card" id="admin-profit-change-card">
-                <div class="stat-card-header">
-                    <div>
-                        <p class="stat-card-title">Profit Adjustment</p>
-                        <h3 class="stat-value" id="admin-profit-change">₹0.00</h3>
-                    </div>
-                    <div class="stat-card-icon orange">
-                        <ion-icon name="cash-outline"></ion-icon>
-                    </div>
-                </div>
-                <div class="stat-card-footer" style="display:flex; gap:10px; margin-top:15px;">
-                    <button class="btn-outline" onclick="addProfitAdjustment()" style="flex:1;">Add Adjustment</button>
-                    <button class="btn-outline btn-danger" onclick="resetProfitChange()" style="flex:1;">Reset</button>
-                </div>
             </div>
         </div>
 

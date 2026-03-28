@@ -30,17 +30,18 @@ const firebaseConfig = {
 
 // --- CONFIGURATION ---
 // window.BACKEND_URL = "http://localhost:10000"; // Local Testing
-window.BACKEND_URL = "https://zynex-backend.onrender.com"; // Render Testing
+window.BACKEND_URL = "https://zynex-backend.onrender.com"; // Production
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const database = getDatabase(app);
 
 window.isUserLoggedIn = () => auth.currentUser;
+
 const provider = new GoogleAuthProvider();
 
 
-// ================== AUTHENTICATION ==================
+// ================= GOOGLE LOGIN =================
 window.googleLogin = function () {
     signInWithPopup(auth, provider)
         .then((result) => {
@@ -65,6 +66,7 @@ window.googleLogin = function () {
         });
 };
 
+// ================= REGISTER =================
 window.registerUser = function () {
     clearInlineErrors();
     const username = document.getElementById("reg-user").value;
@@ -103,6 +105,9 @@ window.registerUser = function () {
         });
 };
 
+
+
+// ================= LOGIN =================
 window.loginUser = function () {
     clearInlineErrors();
     const email = document.getElementById("login-email").value;
@@ -122,71 +127,7 @@ window.loginUser = function () {
         });
 };
 
-window.logoutUser = function () {
-    signOut(auth)
-        .then(() => {
-            // showAlert("Logged out successfully"); // Optional, reload handles it
-            window.location.reload();
-        })
-        .catch((error) => {
-            showAlert(error.message, "Error");
-        });
-};
-
-window.editUsername = function () {
-    showPrompt("Enter your new username:", (newName) => {
-        const user = auth.currentUser;
-        if (user) {
-            updateProfile(user, { displayName: newName }).then(() => {
-                // Also update in Database to ensure consistency
-                update(ref(database, "users/" + user.uid), { username: newName })
-                    .then(() => location.reload());
-            }).catch(err => showAlert(err.message, "Error"));
-        }
-    });
-};
-
-window.handleChangePassword = function() {
-    clearInlineErrors();
-    const oldPass = document.getElementById('cp-old').value;
-    const newPass = document.getElementById('cp-new').value;
-    const confirmPass = document.getElementById('cp-confirm').value;
-
-    let hasError = false;
-    if(!oldPass) { showInlineError('error-cp-old', 'Old password is required'); hasError = true; }
-    if(!newPass) { showInlineError('error-cp-new', 'New password is required'); hasError = true; }
-    if(newPass.length < 6) { showInlineError('error-cp-new', 'Password must be at least 6 characters'); hasError = true; }
-    if(newPass !== confirmPass) { showInlineError('error-cp-confirm', 'Passwords do not match'); hasError = true; }
-
-    if(hasError) return;
-
-    const user = auth.currentUser;
-    if(!user) return;
-
-    const credential = EmailAuthProvider.credential(user.email, oldPass);
-
-    reauthenticateWithCredential(user, credential).then(() => {
-        updatePassword(user, newPass).then(() => {
-            showAlert("Password updated successfully!", "Success");
-            closePopup('.change-password-popup');
-        }).catch(err => showInlineError('error-cp-new', err.message));
-    }).catch(err => {
-        showInlineError('error-cp-old', "Incorrect old password.");
-    });
-};
-
-window.deleteAccount = function() {
-    showConfirm("Are you sure you want to delete your account? This action cannot be undone.", () => {
-        const user = auth.currentUser;
-        deleteUser(user).then(() => {
-            showAlert("Account deleted.", "Goodbye");
-            window.location.href = "index.html";
-        }).catch(e => showAlert("Error: " + e.message + "\n(You may need to re-login to perform this action)"));
-    });
-};
-
-
-// ================== UI & STATE MANAGEMENT ==================
+// ================= AUTH STATE LISTENER =================
 onAuthStateChanged(auth, (user) => {
     const headerAuth = document.getElementById("headerAuthArea");
     const profileSection = document.getElementById("profileSection");
@@ -252,15 +193,15 @@ onAuthStateChanged(auth, (user) => {
         // --- Fetch data from DB and update UI ---
         const userRef = ref(database, "users/" + user.uid);
         get(userRef).then((snapshot) => {
-            if (snapshot.exists() && snapshot.val()) {
-                const data = snapshot.val() || {};
+            if (snapshot.exists()) {
+                const data = snapshot.val();
                 const orders = data.orders || {};
                 window.userOrders = orders; // Store orders for popup access
 
                 // == New Logic: Review prompt on Orders Page Load ==
                 const isOrdersPage = window.location.pathname.includes('orders.html');
                 if (isOrdersPage) {
-                    const promptedOrdersKey = `smmzynex_review_prompted_orders_${user.uid}`;
+                    const promptedOrdersKey = `zynex_review_prompted_orders_${user.uid}`;
                     const promptedOrders = JSON.parse(localStorage.getItem(promptedOrdersKey) || '[]');
 
                     // Find the most recent completed order that has NOT been prompted for review
@@ -335,7 +276,7 @@ onAuthStateChanged(auth, (user) => {
                         const el = document.getElementById(key);
                         if (el && el.type === 'checkbox') el.checked = val;
                         // Sync local storage
-                        localStorage.setItem('smmzynex_setting_' + key, val);
+                        localStorage.setItem('zynex_setting_' + key, val);
                     }
                 }
 
@@ -344,11 +285,9 @@ onAuthStateChanged(auth, (user) => {
                 const noOrdersMsg = document.getElementById('no-orders-msg');
                 const fullOrdersTable = document.getElementById('full-orders-table');
 
-                // Filter out any null/malformed orders to prevent runtime errors, then sort.
-                const orderList = Object.values(orders)
-                    .filter(o => o).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
                 if (ordersTableBody) {
+                    const orderList = Object.values(orders).sort((a, b) => b.timestamp - a.timestamp);
+                    
                     if (orderList.length === 0) {
                         if (fullOrdersTable) fullOrdersTable.style.display = 'none';
                         if (noOrdersMsg) noOrdersMsg.style.display = 'block';
@@ -359,9 +298,9 @@ onAuthStateChanged(auth, (user) => {
                         
                         orderList.forEach(order => {
                             const date = new Date(order.timestamp).toLocaleDateString();
-                            const status = order.status || 'pending';
-                            const statusClass = status === 'completed' ? 'status-completed' : 'status-pending';
-                            const statusText = status === 'pending' ? 'In process' : status.charAt(0).toUpperCase() + status.slice(1);
+                            const statusClass = order.status === 'completed' ? 'status-completed' : 'status-pending';
+                            const statusText = order.status === 'pending' ? 'In process' : order.status.charAt(0).toUpperCase() + order.status.slice(1);
+                            
                             const row = `
                                 <tr>
                                     <td style="font-family:monospace; color:#666; font-size:0.85rem">#${order.id ? order.id.slice(-6) : '---'}</td>
@@ -390,14 +329,14 @@ onAuthStateChanged(auth, (user) => {
                 // == Update Dashboard Recent Orders ==
                 const recentOrdersBody = document.getElementById('recent-orders-body');
                 if (recentOrdersBody) {
+                    const recentOrderList = Object.values(orders).sort((a, b) => b.timestamp - a.timestamp).slice(0, 5);
                     if (orderList.length > 0) {
                         recentOrdersBody.innerHTML = '';
-                        const recentOrderList = orderList.slice(0, 5);
                         recentOrderList.forEach(order => {
                             const date = new Date(order.timestamp).toLocaleDateString();
-                            const status = order.status || 'pending';
-                            const statusClass = status === 'completed' ? 'status-completed' : 'status-pending';
-                            const statusText = status === 'pending' ? 'In process' : status.charAt(0).toUpperCase() + status.slice(1);
+                            const statusClass = order.status === 'completed' ? 'status-completed' : 'status-pending';
+                            const statusText = order.status === 'pending' ? 'In process' : order.status.charAt(0).toUpperCase() + order.status.slice(1);
+                            
                             const row = `
                                 <tr>
                                     <td>
@@ -411,28 +350,7 @@ onAuthStateChanged(auth, (user) => {
                             `;
                             recentOrdersBody.insertAdjacentHTML('beforeend', row);
                         });
-                    } else {
-                        // Explicitly set the "no orders" message if the list is empty
-                        recentOrdersBody.innerHTML = '<td colspan="4" style="text-align:center; color:#999; padding: 20px;">No recent orders.</td>';
                     }
-                }
-            } else {
-                // This block handles new users who are authenticated but have no data in the Realtime Database yet.
-                // It ensures the UI correctly shows a "zero" state.
-                const dashboardOrdersEl = document.getElementById('dashboard-orders');
-                if (dashboardOrdersEl) dashboardOrdersEl.innerText = '0';
-                const dashboardSpentEl = document.getElementById('dashboard-spent');
-                if (dashboardSpentEl) dashboardSpentEl.innerText = '₹0.00';
-
-                const recentOrdersBody = document.getElementById('recent-orders-body');
-                if (recentOrdersBody) recentOrdersBody.innerHTML = '<td colspan="4" style="text-align:center; color:#999; padding: 20px;">No recent orders.</td>';
-
-                const ordersTableBody = document.getElementById('orders-table-body');
-                if (ordersTableBody) {
-                    const noOrdersMsg = document.getElementById('no-orders-msg');
-                    const fullOrdersTable = document.getElementById('full-orders-table');
-                    if (fullOrdersTable) fullOrdersTable.style.display = 'none';
-                    if (noOrdersMsg) noOrdersMsg.style.display = 'block';
                 }
             }
         });
@@ -467,20 +385,87 @@ onAuthStateChanged(auth, (user) => {
     checkGiveawayWinners(user);
 });
 
+
+// ================= LOGOUT =================
+window.logoutUser = function () {
+    signOut(auth)
+        .then(() => {
+            // showAlert("Logged out successfully"); // Optional, reload handles it
+            window.location.reload();
+        })
+        .catch((error) => {
+            showAlert(error.message, "Error");
+        });
+};
+
+
+// Edit Username
+window.editUsername = function () {
+    showPrompt("Enter your new username:", (newName) => {
+        const user = auth.currentUser;
+        if (user) {
+            updateProfile(user, { displayName: newName }).then(() => {
+                // Also update in Database to ensure consistency
+                update(ref(database, "users/" + user.uid), { username: newName })
+                    .then(() => location.reload());
+            }).catch(err => showAlert(err.message, "Error"));
+        }
+    });
+};
+
+window.handleChangePassword = function() {
+    clearInlineErrors();
+    const oldPass = document.getElementById('cp-old').value;
+    const newPass = document.getElementById('cp-new').value;
+    const confirmPass = document.getElementById('cp-confirm').value;
+
+    let hasError = false;
+    if(!oldPass) { showInlineError('error-cp-old', 'Old password is required'); hasError = true; }
+    if(!newPass) { showInlineError('error-cp-new', 'New password is required'); hasError = true; }
+    if(newPass.length < 6) { showInlineError('error-cp-new', 'Password must be at least 6 characters'); hasError = true; }
+    if(newPass !== confirmPass) { showInlineError('error-cp-confirm', 'Passwords do not match'); hasError = true; }
+
+    if(hasError) return;
+
+    const user = auth.currentUser;
+    if(!user) return;
+
+    const credential = EmailAuthProvider.credential(user.email, oldPass);
+
+    reauthenticateWithCredential(user, credential).then(() => {
+        updatePassword(user, newPass).then(() => {
+            showAlert("Password updated successfully!", "Success");
+            closePopup('.change-password-popup');
+        }).catch(err => showInlineError('error-cp-new', err.message));
+    }).catch(err => {
+        showInlineError('error-cp-old', "Incorrect old password.");
+    });
+};
+
+window.deleteAccount = function() {
+    showConfirm("Are you sure you want to delete your account? This action cannot be undone.", () => {
+        const user = auth.currentUser;
+        deleteUser(user).then(() => {
+            showAlert("Account deleted.", "Goodbye");
+            window.location.href = "index.html";
+        }).catch(e => showAlert("Error: " + e.message + "\n(You may need to re-login to perform this action)"));
+    });
+};
+
 window.toggleTheme = function(isDark) {
     if(isDark) document.body.classList.add('dark-mode');
     else document.body.classList.remove('dark-mode');
-    localStorage.setItem('smmzynex_dark_mode', isDark);
+    localStorage.setItem('zynex_dark_mode', isDark);
 };
 
 window.toggleCompact = function(isCompact) {
     if(isCompact) document.body.classList.add('compact-view');
     else document.body.classList.remove('compact-view');
-    localStorage.setItem('smmzynex_compact_view', isCompact);
+    localStorage.setItem('zynex_compact_view', isCompact);
 };
 
 window.saveSetting = function(key, value) {
-    localStorage.setItem('smmzynex_setting_' + key, value);
+    localStorage.setItem('zynex_setting_' + key, value);
     
     const user = auth.currentUser;
     if(user) {
@@ -490,8 +475,8 @@ window.saveSetting = function(key, value) {
 
 // Load settings on init
 document.addEventListener('DOMContentLoaded', () => {
-    if(localStorage.getItem('smmzynex_dark_mode') === 'true') document.body.classList.add('dark-mode');
-    if(localStorage.getItem('smmzynex_compact_view') === 'true') document.body.classList.add('compact-view');
+    if(localStorage.getItem('zynex_dark_mode') === 'true') document.body.classList.add('dark-mode');
+    if(localStorage.getItem('zynex_compact_view') === 'true') document.body.classList.add('compact-view');
 
     loadPublicReviews();
 
@@ -503,15 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Security: Basic HTML Sanitization
-window.sanitize = function(str) {
-    if (!str) return '';
-    const temp = document.createElement('div');
-    temp.textContent = str;
-    return temp.innerHTML;
-};
-
-// ================== ORDER SYSTEM ==================
+// ================= ORDER SYSTEM =================
 window.submitOrderToDB = async function(orderData, onSuccess, onError) {
     const user = auth.currentUser;
     if (!user) {
@@ -540,72 +517,7 @@ window.submitOrderToDB = async function(orderData, onSuccess, onError) {
     }
 };
 
-// Hardcoded Service Config for instant loading
-const LOCAL_SERVICE_CONFIG = {
-    instagram: {
-        title: "Instagram",
-        options: [
-            { name: "Followers", price: 0.4, icon: "people-outline", min: 10, max: 10000 },
-            { name: "Likes", price: 0.05, icon: "heart-outline", min: 100, max: 100000 },
-            { name: "Views", price: 0.01, icon: "eye-outline", min: 100, max: 1000000 },
-            { name: "Comments", price: 0.5, icon: "chatbubble-outline", min: 50, max: 50000 },
-            { name: "Reel Repost", price: 0.3, icon: "repeat-outline", min: 10, max: 1000 },
-            { name: "Reel Save", price: 0.1, icon: "bookmark-outline", min: 10, max: 100000 },
-            { name: "Reel Share", price: 0.2, icon: "share-social-outline", min: 10, max: 100000 },
-            { name: "Story Views", price: 0.05, icon: "aperture-outline", min: 100, max: 10000 }
-        ]
-    },
-    youtube: {
-        title: "YouTube",
-        options: [
-            { name: "Subscribers", price: 4.0, icon: "person-add-outline", min: 10, max: 10000 },
-            { name: "Likes", price: 0.2, icon: "thumbs-up-outline", min: 50, max: 10000 },
-            { name: "Views", price: 0.7, icon: "play-circle-outline", min: 100, max: 100000 },
-            { name: "Comment Likes", price: 0.030, icon: "heart-circle-outline", min: 100, max: 100000 }
-        ]
-    },
-    facebook: {
-        title: "Facebook",
-        options: [
-            { name: "Followers", price: 0.4, icon: "people-outline", min: 10, max: 10000 },
-            { name: "Likes", price: 0.1, icon: "thumbs-up-outline", min: 50, max: 100000 },
-            { name: "Video Views", price: 0.04, icon: "videocam-outline", min: 100, max: 100000 }
-        ]
-    },
-    telegram: {
-        title: "Telegram",
-        options: [
-            { name: "Members", price: 0.3, icon: "people-outline", min: 10, max: 100000 },
-            { name: "Views", price: 0.02, icon: "eye-outline", min: 50, max: 100000 },
-            { name: "Post Share", price: 0.02, icon: "share-social-outline", min: 50, max: 100000 },
-            { name: "Comments", price: 0.6, icon: "chatbubbles-outline", min: 50, max: 10000 }
-        ]
-    }
-};
-
-let SERVICE_CONFIG_CACHE = null;
-
-async function fetchServiceConfig() {
-    if (SERVICE_CONFIG_CACHE) {
-        return SERVICE_CONFIG_CACHE;
-    }
-    try {
-        const response = await fetch(`${BACKEND_URL}/api/services`);
-        if (!response.ok) {
-            console.warn("Backend config fetch failed, using local fallback.");
-            return LOCAL_SERVICE_CONFIG;
-        }
-        const config = await response.json();
-        SERVICE_CONFIG_CACHE = config; // Cache it
-        return config;
-    } catch (error) {
-        console.error("Could not fetch service config from backend, using local fallback.", error);
-        // Fallback to local config if backend fails
-        return LOCAL_SERVICE_CONFIG;
-    }
-}
-
-// --- Order Popup Flow ---
+// ================= ORDER POPUP FLOW =================
 
 // Global state for the order process
 let currentOrder = {
@@ -615,8 +527,30 @@ let currentOrder = {
     min: 0,
     max: 0
 };
+let serviceConfigCache = null;
+
+async function fetchServiceConfig() {
+    if (serviceConfigCache) {
+        return serviceConfigCache;
+    }
+    try {
+        const response = await fetch(`${window.BACKEND_URL}/api/services`);
+        if (!response.ok) throw new Error('Could not load services.');
+        serviceConfigCache = await response.json();
+        return serviceConfigCache;
+    } catch (error) {
+        console.error("Failed to fetch service config:", error);
+        showAlert(error.message, "Error");
+        return null;
+    }
+}
 
 window.openServiceOptions = async function(serviceKey) {
+    if (!window.isUserLoggedIn()) {
+        openPopup('.login-required-popup');
+        return;
+    }
+
     const optionsGrid = document.getElementById('service-options-grid');
     const orderForm = document.getElementById('service-order-form');
     const popupTitle = document.getElementById('service-popup-title');
@@ -624,49 +558,32 @@ window.openServiceOptions = async function(serviceKey) {
     // Reset view
     orderForm.style.display = 'none';
     optionsGrid.style.display = 'grid';
-    optionsGrid.innerHTML = '<p style="text-align: center; color: #999;">Loading options...</p>';
+    optionsGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: #999;">Loading options...</p>';
     openPopup('.service-popup');
 
     const config = await fetchServiceConfig();
-    const normalizedKey = serviceKey.toLowerCase();
-    if (!config || !config[normalizedKey]) {
+    if (!config || !config[serviceKey]) {
         optionsGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: red;">Could not load options for this service.</p>';
         return;
     }
 
-    const serviceData = config[normalizedKey];
+    const serviceData = config[serviceKey];
     popupTitle.innerText = `Select a ${serviceData.title} Service`;
     optionsGrid.innerHTML = '';
-
-    let iconBg = 'rgba(92, 108, 255, 0.1)';
-    let iconColor = '#5c6cff';
-    if (normalizedKey === 'instagram') { iconBg = 'rgba(193, 53, 132, 0.1)'; iconColor = '#C13584'; }
-    else if (normalizedKey === 'youtube') { iconBg = 'rgba(255, 0, 0, 0.1)'; iconColor = '#FF0000'; }
-    else if (normalizedKey === 'facebook') { iconBg = 'rgba(24, 119, 242, 0.1)'; iconColor = '#1877F2'; }
-    else if (normalizedKey === 'telegram') { iconBg = 'rgba(0, 136, 204, 0.1)'; iconColor = '#0088cc'; }
 
     serviceData.options.forEach(opt => {
         if (opt.disabled) return;
         const btn = document.createElement('button');
-        btn.className = 'service-option-button'; // Replaced 'action-card service-opt-card' and inline styles
-        btn.onclick = () => selectServiceOption(normalizedKey, opt.name);
-        btn.innerHTML = `
-            <div class="icon-wrapper" style="background:${iconBg}; color:${iconColor};">
-                <ion-icon name="${opt.icon || 'ellipse-outline'}"></ion-icon>
-            </div>
-            <div class="details">
-                <h3>${opt.name}</h3>
-                <p>₹${opt.price} / unit • Min: ${opt.min}</p>
-            </div>
-        `;
+        btn.className = 'service-opt-btn';
+        btn.onclick = () => selectServiceOption(serviceKey, opt.name);
+        btn.innerHTML = `<ion-icon name="${opt.icon || 'ellipse-outline'}"></ion-icon><span>${opt.name}</span>`;
         optionsGrid.appendChild(btn);
     });
 };
 
 window.selectServiceOption = async function(serviceKey, optionName) {
     const config = await fetchServiceConfig();
-    const normalizedKey = serviceKey.toLowerCase();
-    const serviceData = config[normalizedKey];
+    const serviceData = config[serviceKey];
     const optionData = serviceData.options.find(opt => opt.name === optionName);
 
     if (!optionData) {
@@ -683,38 +600,8 @@ window.selectServiceOption = async function(serviceKey, optionName) {
         max: optionData.max
     };
 
-    // Dynamic Link Label Logic
-    let linkLabel = `Enter ${serviceData.title} Link`;
-    const optLower = optionData.name.toLowerCase();
-    
-    if (normalizedKey === 'instagram') {
-        if (optLower.includes('follower')) linkLabel = 'Profile Link';
-        else if (optLower.includes('story')) linkLabel = 'Story Link';
-        else linkLabel = 'Post/Reel Link';
-    } else if (normalizedKey === 'youtube') {
-        if (optLower.includes('subscriber')) linkLabel = 'Channel Link';
-        else linkLabel = 'Video Link';
-    } else if (normalizedKey === 'facebook') {
-        if (optLower.includes('follower') || optLower.includes('page')) linkLabel = 'Page/Profile Link';
-        else linkLabel = 'Post/Video Link';
-    } else if (normalizedKey === 'telegram') {
-        if (optLower.includes('member')) linkLabel = 'Channel/Group Link';
-        else linkLabel = 'Post Link';
-    }
-
-    // Show/hide public account note based on service
-    const noteEl = document.getElementById('public-account-note');
-    if (noteEl) {
-        if (normalizedKey === 'youtube' || normalizedKey === 'telegram') {
-            noteEl.style.display = 'none';
-        } else {
-            noteEl.style.display = 'flex';
-        }
-    }
-
     // Update UI
-    document.getElementById('service-popup-title').innerText = optionData.name;
-    document.getElementById('label-link').innerText = linkLabel;
+    document.getElementById('label-link').innerText = `Enter ${serviceData.title} Link`;
     document.getElementById('order-limits').innerText = `Min: ${optionData.min}, Max: ${optionData.max}`;
     document.getElementById('order-amount').value = '';
     document.getElementById('order-total').innerText = '0';
@@ -729,7 +616,7 @@ window.selectServiceOption = async function(serviceKey, optionName) {
 window.backToOptions = function() {
     document.getElementById('service-order-form').style.display = 'none';
     document.getElementById('service-options-grid').style.display = 'grid';
-    document.getElementById('service-popup-title').innerText = `Select a ${currentOrder.service || ''} Service`;
+    document.getElementById('service-popup-title').innerText = `Select a ${currentOrder.service} Service`;
     currentOrder = {}; // Clear current order state
 };
 
@@ -745,11 +632,6 @@ window.calculateTotal = function() {
 };
 
 window.submitOrder = function() {
-    if (!window.isUserLoggedIn()) {
-        openPopup('.login-required-popup');
-        return;
-    }
-
     clearInlineErrors();
     const link = document.getElementById('order-link').value.trim();
     const amount = parseInt(document.getElementById('order-amount').value, 10);
@@ -828,6 +710,7 @@ window.processPayment = async function() {
     );
 };
 
+// ================= ORDER DETAILS POPUP =================
 window.openOrderDetails = function(orderId) {
     const orders = window.userOrders || {};
     // Find order by ID (checking both key and stored id property)
@@ -978,43 +861,7 @@ window.copyToClipboard = function(text, btn) {
         .catch(err => console.error("Failed to copy link.", err));
 };
 
-
-// ================== ADMIN DASHBOARD ==================
-
-function generateAdminOrderRow(order, utrCounts) {
-    const status = order.status || 'pending';
-    const statusText = status === 'pending' ? 'Pending' : status.charAt(0).toUpperCase() + status.slice(1);
-    
-    const isDuplicateUTR = order.utr && utrCounts[order.utr] > 1;
-    const utrDisplay = isDuplicateUTR 
-        ? `<span class="utr-code" style="background:#ffebee; color:#c62828; border:1px solid #ffcdd2" title="Duplicate UTR detected!">${sanitize(order.utr)} <ion-icon name="warning"></ion-icon></span>` 
-        : `<div class="utr-code">${sanitize(order.utr || 'N/A')}</div>`;
-
-    const statusBadge = `<span class="status-badge" style="background:${getStatusColor(status)}; color:#fff; padding:4px 8px; border-radius:4px">${statusText}</span>`;
-
-    return `
-        <tr>
-            <td style="font-family:monospace; color:#666">#${order.id ? order.id.slice(-6) : '---'}</td>
-            <td>
-                <div style="font-weight:600">${sanitize(order.username)}</div>
-                <small style="color:#888; font-size:0.75rem; font-family:monospace">${order.userId ? order.userId.slice(0,8) + '...' : 'N/A'}</small>
-            </td>
-            <td>
-                <div>${order.service}</div>
-                <small style="color:#888">${order.option}</small>
-                <div style="font-size:0.75rem"><a href="${sanitize(order.link)}" target="_blank" style="color:#5c6cff">Link</a></div>
-            </td>
-            <td>
-                <div style="font-weight:600">₹${order.totalPrice}</div>
-                <small style="color:#666">Qty: ${order.amount || '-'}</small>
-            </td>
-            <td>${utrDisplay}</td>
-            <td>${statusBadge}</td>
-            <td><button class="view-btn" style="padding:6px 12px; font-size:0.75rem" onclick="openAdminManage('${order.userId}', '${order.id}')"><ion-icon name="create-outline"></ion-icon> Manage</button></td>
-        </tr>
-    `;
-}
-
+// ================= ADMIN DASHBOARD LOGIC =================
 window.loadAdminDashboard = async function(user) {
     // REFACTOR: This function now fetches all data from the secure backend API
     // instead of listening directly to the database. This is more secure and scalable.
@@ -1037,12 +884,11 @@ window.loadAdminDashboard = async function(user) {
         const allOrders = await ordersRes.json();
         const allUsers = await usersRes.json();
 
-        // Filter out any null/undefined entries that might come from the DB to prevent errors
-        window.allAdminOrders = allOrders.filter(o => o);
+        window.allAdminOrders = allOrders; // Store for filtering
         window.allAdminUsers = allUsers; // Store for filtering
 
         // Render the main tables
-        renderAdminTable(window.allAdminOrders);
+        renderAdminTable(allOrders);
         renderAdminUsers(allUsers);
 
         // Initial load for tickets and giveaways
@@ -1064,13 +910,12 @@ window.loadAdminDashboard = async function(user) {
 
 window.renderAdminStats = function(stats) {
     // REFACTOR: This function now receives stats directly from the backend API.
-    const { totalRevenue, totalProfit, totalOrders, pendingCount, profitAdjustment } = stats;
+    const { totalRevenue, totalProfit, totalOrders, pendingCount } = stats;
 
     const revEl = document.getElementById('admin-total-revenue');
     const ordEl = document.getElementById('admin-total-orders');
     const penEl = document.getElementById('admin-pending-orders');
     const profitEl = document.getElementById('admin-total-profit');
-    const profitChangeEl = document.getElementById('admin-profit-change');
 
     if(revEl) revEl.innerText = "₹" + totalRevenue.toLocaleString('en-IN');
     if(ordEl) ordEl.innerText = totalOrders;
@@ -1079,25 +924,68 @@ window.renderAdminStats = function(stats) {
         profitEl.innerText = "₹" + totalProfit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         profitEl.style.color = totalProfit >= 0 ? '#00c853' : '#ff4d4f';
     }
-    if (profitChangeEl) {
-        profitChangeEl.innerText = "₹" + (profitAdjustment || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
+};
+
+window.resetProfitChange = function() {
+    // This feature is disabled because profit is no longer calculated on the client.
+    showAlert("This feature has been disabled for security reasons.", "Info");
 };
 
 window.renderAdminTable = function(orders) {
     const tbody = document.getElementById('admin-orders-body');
     if (!tbody) return;
+    tbody.innerHTML = '';
 
     if (orders.length === 0) {
         tbody.innerHTML = "<tr><td colspan='7' style='text-align:center; padding:20px'>No matching orders found.</td></tr>";
         return;
     }
 
+    // Check for duplicate UTRs to flag potential spam
     const utrCounts = {};
     orders.forEach(o => { if(o.utr) utrCounts[o.utr] = (utrCounts[o.utr] || 0) + 1; });
 
-    const tableHtml = orders.map(order => generateAdminOrderRow(order, utrCounts)).join('');
-    tbody.innerHTML = tableHtml;
+    orders.forEach(order => {
+        const date = new Date(order.timestamp).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+        const status = order.status || 'pending';
+        const statusClass = status === 'completed' ? 'status-completed' : 'status-pending';
+        const statusText = status === 'pending' ? 'Pending' : status.charAt(0).toUpperCase() + status.slice(1);
+        
+        const isDuplicateUTR = order.utr && utrCounts[order.utr] > 1;
+        const utrDisplay = isDuplicateUTR 
+            ? `<span class="utr-code" style="background:#ffebee; color:#c62828; border:1px solid #ffcdd2" title="Duplicate UTR detected!">${sanitize(order.utr)} <ion-icon name="warning"></ion-icon></span>` 
+            : `<div class="utr-code">${sanitize(order.utr || 'N/A')}</div>`;
+
+        // Status Badge (Read Only)
+        const statusBadge = `<span class="status-badge ${statusClass}" style="background:${getStatusColor(status)}; color:#fff; padding:4px 8px; border-radius:4px">${statusText}</span>`;
+
+        const row = `
+            <tr>
+                <td style="font-family:monospace; color:#666">#${order.id ? order.id.slice(-6) : '---'}</td>
+                <td>
+                    <div style="font-weight:600">${sanitize(order.username)}</div>
+                    <small style="color:#888; font-size:0.75rem; font-family:monospace">${order.userId.slice(0,8)}...</small>
+                </td>
+                <td>
+                    <div>${order.service}</div>
+                    <small style="color:#888">${order.option}</small>
+                    <div style="font-size:0.75rem"><a href="${sanitize(order.link)}" target="_blank" style="color:#5c6cff">Link</a></div>
+                </td>
+                <td>
+                    <div style="font-weight:600">₹${order.totalPrice}</div>
+                    <small style="color:#666">Qty: ${order.amount || '-'}</small>
+                </td>
+                <td>
+                    ${utrDisplay}
+                </td>
+                <td>${statusBadge}</td>
+                <td>
+                    <button class="view-btn" style="padding:6px 12px; font-size:0.75rem" onclick="openAdminManage('${order.userId}', '${order.id}')"><ion-icon name="create-outline"></ion-icon> Manage</button>
+                </td>
+            </tr>
+        `;
+        tbody.insertAdjacentHTML('beforeend', row);
+    });
 };
 
 function getStatusColor(status) {
@@ -1108,6 +996,7 @@ function getStatusColor(status) {
     return '#ddd';
 }
 
+// ================= ADMIN USERS TAB =================
 window.renderAdminUsers = function(usersList) {
     // REFACTOR: This function now receives a clean user array from the API.
     const tbody = document.getElementById('admin-users-body');
@@ -1128,52 +1017,12 @@ window.renderAdminUsers = function(usersList) {
     });
 };
 
-window.addProfitAdjustment = function() {
-    showPrompt("Enter amount to add to profit adjustment (can be negative):", async (amountStr) => {
-        const amount = parseFloat(amountStr);
-        if (isNaN(amount)) {
-            showAlert("Please enter a valid number.", "Error");
-            return;
-        }
-
-        const adjustmentRef = ref(database, 'system/profit_adjustment');
-        try {
-            const snapshot = await get(adjustmentRef);
-            const currentAdjustment = snapshot.val() || 0;
-            const newAdjustment = currentAdjustment + amount;
-
-            await set(adjustmentRef, newAdjustment);
-            showAlert("Profit adjustment updated successfully. Stats will refresh shortly.", "Success");
-            // The stats will auto-update on the next poll from setupAdminRealtimeListeners
-        } catch (error) {
-            showAlert(`Failed to update adjustment: ${error.message}`, "Error");
-        }
-    });
-};
-
-window.resetProfitChange = function() {
-    showConfirm("Are you sure you want to reset the profit counter? This should be done after splitting the current profit.", async () => {
-        const user = auth.currentUser;
-        if (!user) return showAlert("You must be logged in.", "Error");
-
-        try {
-            const token = await user.getIdToken();
-            const response = await fetch(`${BACKEND_URL}/api/admin/profit/reset`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.msg || 'Failed to reset profit.');
-
-            showAlert(data.msg, "Success");
-            // The stats will auto-update on the next poll
-        } catch (error) {
-            showAlert(error.message, "Error");
-        }
-    });
+window.updateOrderStatus = function(userId, orderId, newStatus) {
+    set(ref(database, `users/${userId}/orders/${orderId}/status`), newStatus)
+        .then(() => {
+            // Optional: visual feedback
+        })
+        .catch(err => showAlert(err.message, "Error updating status"));
 };
 
 window.filterAdminOrders = function() {
@@ -1205,6 +1054,7 @@ window.filterAdminUsers = function() {
     });
 };
 
+// ================= ADMIN MANAGE POPUP =================
 let currentAdminOrder = null;
 
 window.openAdminManage = function(userId, orderId) {
@@ -1354,7 +1204,7 @@ window.toggleAdminEditMode = function() {
     }
 };
 
-window.saveAdminOrderDetails = async function() {
+window.saveAdminOrderDetails = function() {
     if (!currentAdminOrder) return;
     clearInlineErrors();
     const newLink = document.getElementById('edit-order-link').value;
@@ -1363,20 +1213,12 @@ window.saveAdminOrderDetails = async function() {
     if(!newLink) { showInlineError('error-edit-link', 'Link is required'); return; }
     if(!newUtr) { showInlineError('error-edit-utr', 'UTR is required'); return; }
 
-    const user = auth.currentUser;
-    if (!user) return;
-
-    try {
-        const token = await user.getIdToken();
-        const response = await fetch(`${BACKEND_URL}/api/admin/orders/${currentAdminOrder.userId}/${currentAdminOrder.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ link: newLink, utr: newUtr })
-        });
-        if (!response.ok) throw new Error('Failed to update details.');
-
-        const orderInList = window.allAdminOrders.find(o => o.id === currentAdminOrder.id);
-        if (orderInList) { orderInList.link = newLink; orderInList.utr = newUtr; }
+    update(ref(database, `users/${currentAdminOrder.userId}/orders/${currentAdminOrder.id}`), {
+        link: newLink,
+        utr: newUtr
+    }).then(() => {
+        currentAdminOrder.link = newLink;
+        currentAdminOrder.utr = newUtr;
         // Refresh view
         openAdminManage(currentAdminOrder.userId, currentAdminOrder.id);
         // Refresh table
@@ -1387,29 +1229,17 @@ window.saveAdminOrderDetails = async function() {
 
 window.deleteAdminOrder = function() {
     if (!currentAdminOrder) return;
-    showConfirm("Are you sure you want to permanently delete this order?", async () => {
-        const user = auth.currentUser;
-        if (!user) return;
-        try {
-            const token = await user.getIdToken();
-            const response = await fetch(`${BACKEND_URL}/api/admin/orders/${currentAdminOrder.userId}/${currentAdminOrder.id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!response.ok) throw new Error('Failed to delete order.');
-
-            closePopup('.admin-manage-popup');
-            // Remove from local list and re-render
-            window.allAdminOrders = window.allAdminOrders.filter(o => o.id !== currentAdminOrder.id);
-            renderAdminTable(window.allAdminOrders);
-            showAlert("Order deleted permanently.", "Deleted");
-        } catch (err) {
-            showAlert(err.message, "Error");
-        }
+    showConfirm("Are you sure you want to permanently delete this order?", () => {
+        remove(ref(database, `users/${currentAdminOrder.userId}/orders/${currentAdminOrder.id}`))
+            .then(() => {
+                closePopup('.admin-manage-popup');
+                loadAdminDashboard(auth.currentUser); // Reload all
+                showAlert("Order deleted permanently.", "Deleted");
+            }).catch(err => showAlert(err.message, "Error"));
     });
 };
 
-window.saveAdminOrder = async function() {
+window.saveAdminOrder = function() {
     if (!currentAdminOrder) return;
 
     const cbPayment = document.getElementById('adm-check-payment').checked;
@@ -1421,35 +1251,18 @@ window.saveAdminOrder = async function() {
     if (cbProcess) newStatus = 'inprocess';
     if (cbComplete) newStatus = 'completed';
 
-    const user = auth.currentUser;
-    if (!user) return;
-
-    try {
-        const token = await user.getIdToken();
-        const response = await fetch(`${BACKEND_URL}/api/admin/orders/${currentAdminOrder.userId}/${currentAdminOrder.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ status: newStatus })
-        });
-
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.msg || 'Failed to update order.');
-        
-        closePopup('.admin-manage-popup');
-        
-        const orderInList = window.allAdminOrders.find(o => o.id === currentAdminOrder.id);
-        if (orderInList) {
-            orderInList.status = newStatus;
-        }
-        renderAdminTable(window.allAdminOrders);
-        showAlert("Order updated to " + newStatus, "Success");
-
-    } catch (error) {
-        showAlert(error.message, "Error");
-    }
+    // If user unchecked everything, it goes to pending.
+    
+    updateOrderStatus(currentAdminOrder.userId, currentAdminOrder.id, newStatus);
+    closePopup('.admin-manage-popup');
+    
+    // Refresh table (update local data first to avoid full reload lag)
+    currentAdminOrder.status = newStatus;
+    renderAdminTable(window.allAdminOrders);
+    showAlert("Order updated to " + newStatus, "Success");
 };
 
-window.confirmCancelOrder = async function() {
+window.confirmCancelOrder = function() {
     if (!currentAdminOrder) return;
     
     const radios = document.getElementsByName('cancel-stage');
@@ -1458,38 +1271,23 @@ window.confirmCancelOrder = async function() {
     
     const note = document.getElementById('cancel-note').value.trim();
 
-    const user = auth.currentUser;
-    if (!user) return;
+    // Update status to cancelled
+    updateOrderStatus(currentAdminOrder.userId, currentAdminOrder.id, 'cancelled');
+    
+    // Save the stage where it failed and reason
+    const updates = { cancelledStage: stage };
+    if(note) updates.cancelledReason = note;
+    
+    update(ref(database, `users/${currentAdminOrder.userId}/orders/${currentAdminOrder.id}`), updates);
 
-    const payload = {
-        status: 'cancelled',
-        cancelledStage: stage,
-        cancelledReason: note || null
-    };
-
-    try {
-        const token = await user.getIdToken();
-        const response = await fetch(`${BACKEND_URL}/api/admin/orders/${currentAdminOrder.userId}/${currentAdminOrder.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) throw new Error('Failed to cancel order.');
-
-        closePopup('.admin-manage-popup');
-        const orderInList = window.allAdminOrders.find(o => o.id === currentAdminOrder.id);
-        if (orderInList) {
-            orderInList.status = 'cancelled';
-            if(note) orderInList.cancelledReason = note;
-        }
-        renderAdminTable(window.allAdminOrders);
-        showAlert("Order cancelled.", "Success");
-    } catch (err) {
-        showAlert(err.message, "Error");
-    }
+    closePopup('.admin-manage-popup');
+    currentAdminOrder.status = 'cancelled';
+    if(note) currentAdminOrder.cancelledReason = note;
+    renderAdminTable(window.allAdminOrders);
+    showAlert("Order cancelled.", "Success");
 };
 
+// ================= ADMIN UTILITIES =================
 window.switchAdminTab = function(tabName) {
     // Hide all tabs
     document.querySelectorAll('.admin-tab-content').forEach(el => el.style.display = 'none');
@@ -1509,7 +1307,7 @@ window.switchAdminTab = function(tabName) {
 
     // Clear notification for this tab (mark as seen)
     if (window.adminCounts && window.adminCounts[tabName] !== undefined) {
-        localStorage.setItem(`smmzynex_admin_seen_${tabName}`, window.adminCounts[tabName]);
+        localStorage.setItem(`zynex_admin_seen_${tabName}`, window.adminCounts[tabName]);
         const badge = document.getElementById(`admin-${tabName}-badge`);
         if(badge) badge.style.display = 'none';
         // Refresh sidebar badge to remove count
@@ -1535,7 +1333,7 @@ window.exportOrdersToCSV = function() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "smmzynex_orders_export.csv");
+    link.setAttribute("download", "zynex_orders_export.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1559,9 +1357,22 @@ window.clearAnnouncement = function() {
         });
 };
 
-// ================== TICKET SYSTEM ==================
+// Security: Basic HTML Sanitization
+window.sanitize = function(str) {
+    if (!str) return '';
+    const temp = document.createElement('div');
+    temp.textContent = str;
+    return temp.innerHTML;
+};
+
+// ================= TICKET SYSTEM =================
+
+// Global listeners to handle real-time updates
 let userTicketUnsub = null;
-let currentTicketListener = null; // FIX: Moved listener handle to outer scope
+let adminTicketUnsub = null;
+
+// --- User Side ---
+
 window.openSupportCenter = function() {
     if(userTicketUnsub) { userTicketUnsub(); userTicketUnsub = null; }
 
@@ -1637,39 +1448,39 @@ window.showCreateTicket = function(orderId = '') {
     `;
 };
 
-window.submitTicket = async function(orderId) { // REFACTOR: Use backend API
+window.submitTicket = function(orderId) {
     const user = auth.currentUser;
     if(!user) return showAlert("Please login first.");
 
     const subject = document.getElementById('ticket-subject').value.trim();
     const message = document.getElementById('ticket-message').value.trim();
 
-    if (!subject || !message) return showAlert("Please fill all fields.");
+    if(!subject || !message) return showAlert("Please fill all fields.");
 
-    try {
-        const token = await user.getIdToken();
-        const response = await fetch(`${BACKEND_URL}/api/tickets`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ subject, message, orderId: orderId || null })
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
-            throw new Error(data.msg || 'Failed to create ticket.');
+    // FIX: Use push() to generate a unique ID for every ticket
+    // This prevents overwriting previous tickets from the same user
+    const newTicketRef = push(ref(database, 'tickets'));
+    const ticketData = {
+        id: newTicketRef.key,
+        userId: user.uid,
+        userEmail: user.email,
+        username: user.displayName || 'User',
+        subject: subject,
+        status: 'open',
+        orderId: orderId || null,
+        timestamp: Date.now(),
+        replies: {
+            [Date.now()]: { sender: 'user', message: message, timestamp: Date.now() }
         }
+    };
 
+    set(newTicketRef, ticketData).then(() => {
         showAlert("Ticket created successfully!", "Success");
         showUserTickets();
-    } catch (error) {
-        showAlert(error.message, "Error");
-    }
+    });
 };
 
-window.showUserTickets = async function() { // REFACTOR: Use backend API
+window.showUserTickets = function() {
     if(userTicketUnsub) { userTicketUnsub(); userTicketUnsub = null; }
 
     const user = auth.currentUser;
@@ -1684,20 +1495,23 @@ window.showUserTickets = async function() { // REFACTOR: Use backend API
         </div>
     `;
 
-    const list = document.getElementById('user-ticket-list');
-    if (!list) return;
-
-    try {
-        const token = await user.getIdToken();
-        const response = await fetch(`${BACKEND_URL}/api/tickets`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!response.ok) throw new Error('Failed to fetch tickets.');
-
-        const tickets = await response.json();
+    get(ref(database, 'tickets')).then(snap => {
+        const list = document.getElementById('user-ticket-list');
+        if(!list) return;
         list.innerHTML = '';
 
-        if (tickets.length === 0) {
+        if(!snap.exists()) {
+            list.innerHTML = '<p style="text-align:center; color:#999">No tickets found.</p>';
+            return;
+        }
+
+        const tickets = [];
+        snap.forEach(child => {
+            const t = child.val();
+            if(t.userId === user.uid) tickets.push(t);
+        });
+
+        if(tickets.length === 0) {
             list.innerHTML = '<p style="text-align:center; color:#999">No tickets found.</p>';
             return;
         }
@@ -1717,14 +1531,13 @@ window.showUserTickets = async function() { // REFACTOR: Use backend API
                 </div>
             `;
         });
-    } catch (error) {
-        list.innerHTML = `<p style="text-align:center; color:red;">Error: ${error.message}</p>`;
-    }
+    });
 };
 
 window.viewUserTicket = function(ticketId) {
     const content = document.querySelector('.popup-content.help');
     
+    let currentTicketListener = null;
     // Stop listening to previous ticket if any
     if(currentTicketListener) currentTicketListener();
     if(userTicketUnsub) { userTicketUnsub(); userTicketUnsub = null; }
@@ -1826,7 +1639,8 @@ window.deleteUserTicket = function(ticketId) {
     });
 };
 
-let adminTicketUnsub = null;
+// --- Admin Side ---
+
 window.loadAdminTickets = function() {
     if (window.adminTicketsUnsub) window.adminTicketsUnsub();
 
@@ -1932,60 +1746,27 @@ window.sendAdminTicketReply = function() {
     if(currentAdminTicketId) replyToTicket(currentAdminTicketId, 'admin');
 };
 
-window.toggleTicketStatus = async function() { // REFACTOR: Use backend API
+window.toggleTicketStatus = function() {
     if(!currentAdminTicketId) return;
     const t = window.allAdminTickets.find(x => x.id === currentAdminTicketId);
-    if (!t) return;
     const newStatus = t.status === 'open' ? 'closed' : 'open';
     
-    const user = auth.currentUser;
-    if (!user) return;
-
-    try {
-        const token = await user.getIdToken();
-        const response = await fetch(`${BACKEND_URL}/api/admin/tickets/${currentAdminTicketId}/status`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ status: newStatus })
-        });
-
-        if (!response.ok) throw new Error('Failed to update status.');
-
+    update(ref(database, `tickets/${currentAdminTicketId}`), { status: newStatus }).then(() => {
         t.status = newStatus;
-        renderAdminTicketsTable(window.allAdminTickets); // Just re-render, no need to fetch all again
+        loadAdminTickets(); // Refresh table
         showAlert(`Ticket ${newStatus}.`, "Success");
-        // The popup will update via its own onValue listener
-    } catch (error) {
-        showAlert(error.message, "Error");
-    }
+    });
 };
 
-window.deleteAdminTicket = function() { // REFACTOR: Use backend API
+window.deleteAdminTicket = function() {
     if(!currentAdminTicketId) return;
-    showConfirm("Permanently delete this ticket?", async () => {
-        const user = auth.currentUser;
-        if (!user) return;
-
-        try {
-            const token = await user.getIdToken();
-            const response = await fetch(`${BACKEND_URL}/api/admin/tickets/${currentAdminTicketId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            if (!response.ok) throw new Error('Failed to delete ticket.');
-
-            closePopup('.admin-ticket-popup');
-            // Remove from local cache and re-render
-            window.allAdminTickets = window.allAdminTickets.filter(t => t.id !== currentAdminTicketId);
-            renderAdminTicketsTable(window.allAdminTickets);
-            showAlert("Ticket deleted.", "Deleted");
-        } catch (error) {
-            showAlert(error.message, "Error");
-        }
+    showConfirm("Permanently delete this ticket?", () => {
+        remove(ref(database, `tickets/${currentAdminTicketId}`))
+            .then(() => {
+                closePopup('.admin-ticket-popup');
+                showAlert("Ticket deleted.", "Deleted");
+            })
+            .catch(e => showAlert(e.message, "Error"));
     });
 };
 
@@ -2056,12 +1837,12 @@ window.updateAdminBadges = function(type, count) {
     const isTabActive = tabContent && tabContent.style.display !== 'none';
 
     // Get last seen count
-    let lastSeen = parseInt(localStorage.getItem(`smmzynex_admin_seen_${type}`) || '0');
+    let lastSeen = parseInt(localStorage.getItem(`zynex_admin_seen_${type}`) || '0');
 
     // If viewing tab, or if count decreased (items processed), update seen count
     if (isTabActive || count < lastSeen) {
         lastSeen = count;
-        localStorage.setItem(`smmzynex_admin_seen_${type}`, count);
+        localStorage.setItem(`zynex_admin_seen_${type}`, count);
     }
     
     // Update Tab Badge (Red Dot) - Show only if new items exist
@@ -2073,7 +1854,7 @@ window.updateAdminBadges = function(type, count) {
     let totalUnseen = 0;
     ['orders', 'tickets'].forEach(t => {
         const c = window.adminCounts[t] || 0;
-        const s = parseInt(localStorage.getItem(`smmzynex_admin_seen_${t}`) || '0');
+        const s = parseInt(localStorage.getItem(`zynex_admin_seen_${t}`) || '0');
         if (c > s) totalUnseen += (c - s);
     });
 
@@ -2098,7 +1879,8 @@ window.filterAdminTickets = function() {
     renderAdminTicketsTable(filtered);
 };
 
-// ================== NOTIFICATIONS SYSTEM ==================
+// ================= NOTIFICATIONS SYSTEM =================
+
 window.setupUserNotifications = function(user) {
     // 2. Ticket Updates
     const ticketsRef = ref(database, 'tickets');
@@ -2118,7 +1900,8 @@ window.setupUserNotifications = function(user) {
     });
 };
 
-// ================== GIVEAWAY SYSTEM ==================
+// ================= GIVEAWAY SYSTEM =================
+// --- ADMIN SIDE ---
 window.loadAdminGiveaways = function() {
     if(window.adminGiveawaysUnsub) window.adminGiveawaysUnsub();
 
@@ -2422,6 +2205,7 @@ window.rerollGiveaway = function(id, winnerUserId) {
     });
 };
 
+// --- PUBLIC SIDE ---
 window.submitGiveawayEntry = function() {
     clearInlineErrors();
     const user = auth.currentUser;
@@ -2449,22 +2233,9 @@ window.submitGiveawayEntry = function() {
             updates[`giveaway_user_entries/${user.uid}/${gaId}`] = igHandle;
             
             update(ref(database), updates).then(() => {
-                // --- INSTANT UI UPDATE ---
                 showAlert("You've successfully entered the giveaway! Good luck!", "Success");
                 closePopup('.giveaway-entry-popup');
                 document.getElementById('entry-ig-handle').value = '';
-                const user = auth.currentUser;
-                if (window.userEntriesData) {
-                    window.userEntriesData[gaId] = igHandle;
-                }
-                const giveawayToUpdate = window.giveawaysData && window.giveawaysData.find(g => g.id === gaId);
-                const cardContainer = document.getElementById(`ga-container-${gaId}`);
-
-                if (user && giveawayToUpdate && cardContainer) {
-                    const newCardHtml = generateSingleGiveawayCardHtml(giveawayToUpdate, window.userEntriesData, user);
-                    cardContainer.outerHTML = newCardHtml;
-                }
-                // --- END INSTANT UI UPDATE ---
             }).catch(err => showAlert(err.message, "Error"));
         }
     });
@@ -2472,31 +2243,13 @@ window.submitGiveawayEntry = function() {
 
 window.loadGiveawayPage = function() {
     const container = document.getElementById('giveaway-page-content');
-    const loadingState = document.getElementById('giveaway-loading-state'); // This will be hidden once content is loaded
-    const loggedOutMessage = document.getElementById('giveaway-logged-out-message'); // This will be hidden
-
-    if (!container || !loadingState || !loggedOutMessage) { // Ensure all elements exist
-        console.warn("Giveaway page elements not found.");
-        return; // Exit if elements are missing
-    }
-
-    // Always start by showing loading and hiding others, then show container
-    loadingState.style.display = 'block';
-    loggedOutMessage.style.display = 'none';
-    container.style.display = 'block'; // Always show the main content container
-
-    const user = auth.currentUser; // Get current user from Firebase Auth
-
-    // Stop any previous real-time listener
-    if (window.gaPageUnsub) {
-        window.gaPageUnsub();
-        window.gaPageUnsub = null;
-    }
-
-    // Use a realtime listener for instant loading and live updates.
+    if(!container) return;
+    
+    const user = auth.currentUser;
+    
+    if(window.gaPageUnsub) window.gaPageUnsub();
+    
     window.gaPageUnsub = onValue(ref(database, 'giveaways'), snap => {
-        loadingState.style.display = 'none';
-
         if(!snap.exists()) {
             container.innerHTML = `<div class="stat-card" style="text-align:center; padding: 60px 20px;">
                 <ion-icon name="sad-outline" style="font-size: 64px; color: #ccc; margin-bottom: 15px;"></ion-icon>
@@ -2508,128 +2261,117 @@ window.loadGiveawayPage = function() {
 
         const giveaways = [];
         snap.forEach(c => { giveaways.push({id: c.key, ...c.val()}); });
-        // Sort giveaways to show active ones first, then by date.
         giveaways.sort((a,b) => (b.isActive === a.isActive) ? (b.timestamp - a.timestamp) : (b.isActive ? -1 : 1));
 
-        // Store for instant updates on entry
-        window.giveawaysData = giveaways;
-
         if(user) {
-            // Still need to fetch user-specific entries from Firebase RTDB
             get(ref(database, `giveaway_user_entries/${user.uid}`)).then(entrySnap => {
                 const userEntries = entrySnap.exists() ? entrySnap.val() : {};
-                window.userEntriesData = userEntries; // Store for instant updates
                 renderGiveawaysList(giveaways, userEntries, user, container);
             }).catch(err => {
                 console.error("Error fetching user entries:", err);
-                window.userEntriesData = {};
                 renderGiveawaysList(giveaways, {}, user, container);
             });
         } else {
-            // Render for logged-out user
-            window.userEntriesData = {};
             renderGiveawaysList(giveaways, {}, null, container);
         }
-    }, (error) => {
-        console.error("Error loading giveaway page:", error);
-        loadingState.style.display = 'none';
-        container.innerHTML = `<div class="stat-card" style="text-align:center; padding: 60px 20px; color:red;">
-            <ion-icon name="alert-circle-outline" style="font-size: 64px; margin-bottom: 15px;"></ion-icon>
-            <h2>Error Loading Giveaways</h2>
-            <p style="color: #666; margin-top: 10px;">Could not load giveaway data. Please try again later.</p>
-        </div>`;
     });
 };
 
-function generateSingleGiveawayCardHtml(g, userEntries, user) {
-    const hasEntered = user && userEntries[g.id];
-    const userIgHandle = userEntries[g.id] || '';
-    
-    let rulesHtml = '';
-    if(g.rules) {
-        g.rules.split('\n').forEach(r => {
-            if(r.trim()) rulesHtml += `<li><ion-icon name="checkmark-circle"></ion-icon> <span>${sanitize(r)}</span></li>`;
-        });
-    } else {
-        rulesHtml = `<li><ion-icon name="checkmark-circle"></ion-icon> <span>Follow our Instagram</span></li>`;
-    }
-    
-    const isEnded = !g.isActive;
-    const winnersList = g.winners || (g.winner ? [g.winner] : []);
-    const imageUrl = g.imageUrl || g.image; // Handle both possible field names
-    const imgBg = imageUrl ? `background-image: url('${sanitize(imageUrl)}');` : `background: linear-gradient(135deg, #ff416c, #ff4b2b);`;
-    
-    let actionHtml = '';
-    if (isEnded) {
-        if(winnersList.length > 0) {
-            const handlesHtml = winnersList.map(w => `<div class="winner-handle" style="font-size:1rem; padding:8px 20px; margin:5px; box-shadow:0 4px 10px rgba(0,0,0,0.1);">@${sanitize(w.igHandle)}</div>`).join('');
-            actionHtml = `
-                <div class="ga-modern-action" style="background: linear-gradient(135deg, #FFD700 0%, #FFA000 100%); padding:20px; border-radius:12px; text-align:center; color:#fff;">
-                    <ion-icon name="trophy" style="font-size: 40px; margin-bottom: 10px;"></ion-icon>
-                    <h3 style="margin-bottom:15px; font-size:1.3rem;">Giveaway Ended!</h3>
-                    <p style="font-size:0.9rem; margin-bottom:10px; opacity:0.9;">Congratulations to our winner(s):</p>
-                    <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:5px;">${handlesHtml}</div>
-                </div>
-            `;
-        } else {
-            actionHtml = `<div class="ga-modern-action" style="text-align:center; padding:20px; color:#999; background:#f9f9f9; border-radius:12px;">Giveaway Ended</div>`;
-        }
-    } else {
-        if (hasEntered) { // User is logged in AND has entered
-            actionHtml = `
-                <div class="ga-modern-action entered-badge" style="margin:0; padding:15px; flex-direction:row; justify-content:center;">
-                    <ion-icon name="checkmark-circle" style="font-size:32px;"></ion-icon>
-                    <div>
-                        <h4 style="margin:0; font-size:1.1rem;">You're In!</h4>
-                        <p style="margin:0; font-size:0.85rem;">Registered as @${sanitize(userIgHandle)}</p>
-                    </div>
-                </div>
-            `;
-        } else { // User is logged in OR logged out, but has NOT entered
-            actionHtml = `
-                <div class="ga-modern-action">
-                    <button class="cta" onclick="openGiveawayPopup('${g.id}')" style="width: 100%; padding:15px; font-size:1.1rem; background: linear-gradient(135deg, #ff416c, #ff4b2b); box-shadow: 0 5px 15px rgba(255, 65, 108, 0.3);">
-                        <ion-icon name="gift-outline"></ion-icon> Enter Giveaway Now
-                    </button>
-                </div>
-            `;
-        }
-    }
-
-    const opacity = isEnded ? '0.7' : '1';
-
-    return `
-        <div class="giveaway-card-modern" style="opacity:${opacity};" id="ga-container-${g.id}">
-            <div class="ga-modern-banner" style="${imgBg}">
-                ${isEnded ? `<div class="ga-modern-badge ended">Ended</div>` : `<div class="ga-modern-badge">Active</div>`}
-                <div class="ga-modern-title-area">
-                    <h2>${sanitize(g.title || 'Giveaway')}</h2>
-                    <p>${sanitize(g.description || '')}</p>
-                </div>
-            </div>
-            
-            <div class="ga-modern-body">
-                <div class="ga-modern-info">
-                    <div class="ga-modern-prize"><ion-icon name="gift"></ion-icon> ${sanitize(g.prize || 'Surprise')}</div>
-                    ${g.endDate && !isEnded ? `<div class="ga-modern-ends"><ion-icon name="time-outline"></ion-icon> Ends: ${new Date(g.endDate).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</div>` : ''}
-                </div>
-                
-                <div class="ga-modern-rules">
-                    <h4><ion-icon name="list-outline" style="color:#5c6cff;"></ion-icon> How to Enter</h4>
-                    <ul>${rulesHtml}</ul>
-                </div>
-                
-                ${actionHtml}
-            </div>
-        </div>
-    `;
-}
-
 function renderGiveawaysList(giveaways, userEntries, user, container) {
     let html = '';
+    
     giveaways.forEach(g => {
-        html += generateSingleGiveawayCardHtml(g, userEntries, user);
+        const hasEntered = !!userEntries[g.id];
+        const userIgHandle = userEntries[g.id] || '';
+        
+        let rulesHtml = '';
+        if(g.rules) {
+            g.rules.split('\n').forEach(r => {
+                if(r.trim()) rulesHtml += `<li><ion-icon name="checkmark-circle"></ion-icon> <span>${sanitize(r)}</span></li>`;
+            });
+        } else {
+            rulesHtml = `<li><ion-icon name="checkmark-circle"></ion-icon> <span>Follow our Instagram</span></li>`;
+        }
+        
+        const isEnded = !g.isActive;
+        const winnersList = g.winners || (g.winner ? [g.winner] : []);
+        const imgBg = g.imageUrl ? `background-image: url('${sanitize(g.imageUrl)}');` : `background: linear-gradient(135deg, #ff416c, #ff4b2b);`;
+        
+        let actionHtml = '';
+        if (isEnded) {
+            if(winnersList.length > 0) {
+                const handlesHtml = winnersList.map(w => `<div class="winner-handle" style="font-size:1rem; padding:8px 20px; margin:5px; box-shadow:0 4px 10px rgba(0,0,0,0.1);">@${sanitize(w.igHandle)}</div>`).join('');
+                actionHtml = `
+                    <div class="ga-modern-action" style="background: linear-gradient(135deg, #FFD700 0%, #FFA000 100%); padding:20px; border-radius:12px; text-align:center; color:#fff;">
+                        <ion-icon name="trophy" style="font-size: 40px; margin-bottom: 10px;"></ion-icon>
+                        <h3 style="margin-bottom:15px; font-size:1.3rem;">Giveaway Ended!</h3>
+                        <p style="font-size:0.9rem; margin-bottom:10px; opacity:0.9;">Congratulations to our winner(s):</p>
+                        <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:5px;">${handlesHtml}</div>
+                    </div>
+                `;
+            } else {
+                actionHtml = `<div class="ga-modern-action" style="text-align:center; padding:20px; color:#999; background:#f9f9f9; border-radius:12px;">Giveaway Ended</div>`;
+            }
+        } else {
+            if (!user) {
+                actionHtml = `
+                    <div class="ga-modern-action">
+                        <button class="cta" onclick="window.location.href='account.html?login=true'" style="width: 100%; background: #333; padding:15px; font-size:1.05rem;">
+                            <ion-icon name="lock-closed-outline"></ion-icon> Login to Enter
+                        </button>
+                        <p style="text-align:center; font-size:0.8rem; color:#888; margin-top:10px;">You must be logged in to participate.</p>
+                    </div>
+                `;
+            } else if (hasEntered) {
+                actionHtml = `
+                    <div class="ga-modern-action entered-badge" style="margin:0; padding:15px; flex-direction:row; justify-content:center;">
+                        <ion-icon name="checkmark-circle" style="font-size:32px;"></ion-icon>
+                        <div>
+                            <h4 style="margin:0; font-size:1.1rem;">You're In!</h4>
+                            <p style="margin:0; font-size:0.85rem;">Registered as @${sanitize(userIgHandle)}</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                actionHtml = `
+                    <div class="ga-modern-action">
+                        <button class="cta" onclick="openGiveawayPopup('${g.id}')" style="width: 100%; padding:15px; font-size:1.1rem; background: linear-gradient(135deg, #ff416c, #ff4b2b); box-shadow: 0 5px 15px rgba(255, 65, 108, 0.3);">
+                            <ion-icon name="gift-outline"></ion-icon> Enter Giveaway Now
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        const opacity = isEnded ? '0.7' : '1';
+
+        html += `
+            <div class="giveaway-card-modern" style="opacity:${opacity};" id="ga-container-${g.id}">
+                <div class="ga-modern-banner" style="${imgBg}">
+                    ${isEnded ? `<div class="ga-modern-badge ended">Ended</div>` : `<div class="ga-modern-badge">Active</div>`}
+                    <div class="ga-modern-title-area">
+                        <h2>${sanitize(g.title || 'Giveaway')}</h2>
+                        <p>${sanitize(g.description || '')}</p>
+                    </div>
+                </div>
+                
+                <div class="ga-modern-body">
+                    <div class="ga-modern-info">
+                        <div class="ga-modern-prize"><ion-icon name="gift"></ion-icon> ${sanitize(g.prize || 'Surprise')}</div>
+                        ${g.endDate && !isEnded ? `<div class="ga-modern-ends"><ion-icon name="time-outline"></ion-icon> Ends: ${new Date(g.endDate).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</div>` : ''}
+                    </div>
+                    
+                    <div class="ga-modern-rules">
+                        <h4><ion-icon name="list-outline" style="color:#5c6cff;"></ion-icon> How to Enter</h4>
+                        <ul>${rulesHtml}</ul>
+                    </div>
+                    
+                    ${actionHtml}
+                </div>
+            </div>
+        `;
     });
+    
     container.innerHTML = html;
 }
 
@@ -2681,7 +2423,7 @@ window.checkGiveawayWinners = function(user) {
         const enteredGiveaways = snap.val();
         onValue(ref(database, 'giveaways'), gSnap => {
              if(!gSnap.exists()) return;
-             const seen = JSON.parse(localStorage.getItem(`smmzynex_seen_winners_${user.uid}`) || '{}');
+             const seen = JSON.parse(localStorage.getItem(`zynex_seen_winners_${user.uid}`) || '{}');
              gSnap.forEach(child => {
                  const g = child.val();
                  const gid = child.key;
@@ -2691,14 +2433,15 @@ window.checkGiveawayWinners = function(user) {
                      const isWinner = winnersList.some(w => w.userId === user.uid);
                      setTimeout(() => showWinnerPopup(g, isWinner), 1000);
                      seen[gid] = true;
-                     localStorage.setItem(`smmzynex_seen_winners_${user.uid}`, JSON.stringify(seen));
+                     localStorage.setItem(`zynex_seen_winners_${user.uid}`, JSON.stringify(seen));
                  }
              });
         });
     });
 };
 
-// ================== REVIEW SYSTEM ==================
+// ================= REVIEW SYSTEM =================
+
 window.openReviewPopup = function() {
     const user = auth.currentUser;
     if (!user) {
