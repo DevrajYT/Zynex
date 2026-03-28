@@ -344,9 +344,9 @@ onAuthStateChanged(auth, (user) => {
                 const noOrdersMsg = document.getElementById('no-orders-msg');
                 const fullOrdersTable = document.getElementById('full-orders-table');
 
+                const orderList = Object.values(orders).sort((a, b) => b.timestamp - a.timestamp);
+
                 if (ordersTableBody) {
-                    const orderList = Object.values(orders).sort((a, b) => b.timestamp - a.timestamp);
-                    
                     if (orderList.length === 0) {
                         if (fullOrdersTable) fullOrdersTable.style.display = 'none';
                         if (noOrdersMsg) noOrdersMsg.style.display = 'block';
@@ -388,7 +388,7 @@ onAuthStateChanged(auth, (user) => {
                 // == Update Dashboard Recent Orders ==
                 const recentOrdersBody = document.getElementById('recent-orders-body');
                 if (recentOrdersBody) {
-                    const recentOrderList = Object.values(orders).sort((a, b) => b.timestamp - a.timestamp).slice(0, 5);
+                    const recentOrderList = orderList.slice(0, 5);
                     if (orderList.length > 0) {
                         recentOrdersBody.innerHTML = '';
                         recentOrderList.forEach(order => {
@@ -1040,12 +1040,13 @@ window.loadAdminDashboard = async function(user) {
 
 window.renderAdminStats = function(stats) {
     // REFACTOR: This function now receives stats directly from the backend API.
-    const { totalRevenue, totalProfit, totalOrders, pendingCount } = stats;
+    const { totalRevenue, totalProfit, totalOrders, pendingCount, profitAdjustment } = stats;
 
     const revEl = document.getElementById('admin-total-revenue');
     const ordEl = document.getElementById('admin-total-orders');
     const penEl = document.getElementById('admin-pending-orders');
     const profitEl = document.getElementById('admin-total-profit');
+    const profitChangeEl = document.getElementById('admin-profit-change');
 
     if(revEl) revEl.innerText = "₹" + totalRevenue.toLocaleString('en-IN');
     if(ordEl) ordEl.innerText = totalOrders;
@@ -1053,6 +1054,9 @@ window.renderAdminStats = function(stats) {
     if (profitEl) {
         profitEl.innerText = "₹" + totalProfit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         profitEl.style.color = totalProfit >= 0 ? '#00c853' : '#ff4d4f';
+    }
+    if (profitChangeEl) {
+        profitChangeEl.innerText = "₹" + (profitAdjustment || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 };
 
@@ -1100,12 +1104,52 @@ window.renderAdminUsers = function(usersList) {
     });
 };
 
-window.updateOrderStatus = function(userId, orderId, newStatus) {
-    set(ref(database, `users/${userId}/orders/${orderId}/status`), newStatus)
-        .then(() => {
-            // Optional: visual feedback
-        })
-        .catch(err => showAlert(err.message, "Error updating status"));
+window.addProfitAdjustment = function() {
+    showPrompt("Enter amount to add to profit adjustment (can be negative):", async (amountStr) => {
+        const amount = parseFloat(amountStr);
+        if (isNaN(amount)) {
+            showAlert("Please enter a valid number.", "Error");
+            return;
+        }
+
+        const adjustmentRef = ref(database, 'system/profit_adjustment');
+        try {
+            const snapshot = await get(adjustmentRef);
+            const currentAdjustment = snapshot.val() || 0;
+            const newAdjustment = currentAdjustment + amount;
+
+            await set(adjustmentRef, newAdjustment);
+            showAlert("Profit adjustment updated successfully. Stats will refresh shortly.", "Success");
+            // The stats will auto-update on the next poll from setupAdminRealtimeListeners
+        } catch (error) {
+            showAlert(`Failed to update adjustment: ${error.message}`, "Error");
+        }
+    });
+};
+
+window.resetProfitChange = function() {
+    showConfirm("Are you sure you want to reset the profit counter? This should be done after splitting the current profit.", async () => {
+        const user = auth.currentUser;
+        if (!user) return showAlert("You must be logged in.", "Error");
+
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch(`${BACKEND_URL}/api/admin/profit/reset`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.msg || 'Failed to reset profit.');
+
+            showAlert(data.msg, "Success");
+            // The stats will auto-update on the next poll
+        } catch (error) {
+            showAlert(error.message, "Error");
+        }
+    });
 };
 
 window.filterAdminOrders = function() {
@@ -1286,7 +1330,7 @@ window.toggleAdminEditMode = function() {
     }
 };
 
-window.saveAdminOrderDetails = function() {
+window.saveAdminOrderDetails = async function() {
     if (!currentAdminOrder) return;
     clearInlineErrors();
     const newLink = document.getElementById('edit-order-link').value;
@@ -1295,12 +1339,20 @@ window.saveAdminOrderDetails = function() {
     if(!newLink) { showInlineError('error-edit-link', 'Link is required'); return; }
     if(!newUtr) { showInlineError('error-edit-utr', 'UTR is required'); return; }
 
-    update(ref(database, `users/${currentAdminOrder.userId}/orders/${currentAdminOrder.id}`), {
-        link: newLink,
-        utr: newUtr
-    }).then(() => {
-        currentAdminOrder.link = newLink;
-        currentAdminOrder.utr = newUtr;
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+        const token = await user.getIdToken();
+        const response = await fetch(`${BACKEND_URL}/api/admin/orders/${currentAdminOrder.userId}/${currentAdminOrder.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ link: newLink, utr: newUtr })
+        });
+        if (!response.ok) throw new Error('Failed to update details.');
+
+        const orderInList = window.allAdminOrders.find(o => o.id === currentAdminOrder.id);
+        if (orderInList) { orderInList.link = newLink; orderInList.utr = newUtr; }
         // Refresh view
         openAdminManage(currentAdminOrder.userId, currentAdminOrder.id);
         // Refresh table
@@ -1311,17 +1363,29 @@ window.saveAdminOrderDetails = function() {
 
 window.deleteAdminOrder = function() {
     if (!currentAdminOrder) return;
-    showConfirm("Are you sure you want to permanently delete this order?", () => {
-        remove(ref(database, `users/${currentAdminOrder.userId}/orders/${currentAdminOrder.id}`))
-            .then(() => {
-                closePopup('.admin-manage-popup');
-                loadAdminDashboard(auth.currentUser); // Reload all
-                showAlert("Order deleted permanently.", "Deleted");
-            }).catch(err => showAlert(err.message, "Error"));
+    showConfirm("Are you sure you want to permanently delete this order?", async () => {
+        const user = auth.currentUser;
+        if (!user) return;
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch(`${BACKEND_URL}/api/admin/orders/${currentAdminOrder.userId}/${currentAdminOrder.id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error('Failed to delete order.');
+
+            closePopup('.admin-manage-popup');
+            // Remove from local list and re-render
+            window.allAdminOrders = window.allAdminOrders.filter(o => o.id !== currentAdminOrder.id);
+            renderAdminTable(window.allAdminOrders);
+            showAlert("Order deleted permanently.", "Deleted");
+        } catch (err) {
+            showAlert(err.message, "Error");
+        }
     });
 };
 
-window.saveAdminOrder = function() {
+window.saveAdminOrder = async function() {
     if (!currentAdminOrder) return;
 
     const cbPayment = document.getElementById('adm-check-payment').checked;
@@ -1333,18 +1397,35 @@ window.saveAdminOrder = function() {
     if (cbProcess) newStatus = 'inprocess';
     if (cbComplete) newStatus = 'completed';
 
-    // If user unchecked everything, it goes to pending.
-    
-    updateOrderStatus(currentAdminOrder.userId, currentAdminOrder.id, newStatus);
-    closePopup('.admin-manage-popup');
-    
-    // Refresh table (update local data first to avoid full reload lag)
-    currentAdminOrder.status = newStatus;
-    renderAdminTable(window.allAdminOrders);
-    showAlert("Order updated to " + newStatus, "Success");
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+        const token = await user.getIdToken();
+        const response = await fetch(`${BACKEND_URL}/api/admin/orders/${currentAdminOrder.userId}/${currentAdminOrder.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ status: newStatus })
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.msg || 'Failed to update order.');
+        
+        closePopup('.admin-manage-popup');
+        
+        const orderInList = window.allAdminOrders.find(o => o.id === currentAdminOrder.id);
+        if (orderInList) {
+            orderInList.status = newStatus;
+        }
+        renderAdminTable(window.allAdminOrders);
+        showAlert("Order updated to " + newStatus, "Success");
+
+    } catch (error) {
+        showAlert(error.message, "Error");
+    }
 };
 
-window.confirmCancelOrder = function() {
+window.confirmCancelOrder = async function() {
     if (!currentAdminOrder) return;
     
     const radios = document.getElementsByName('cancel-stage');
@@ -1353,20 +1434,36 @@ window.confirmCancelOrder = function() {
     
     const note = document.getElementById('cancel-note').value.trim();
 
-    // Update status to cancelled
-    updateOrderStatus(currentAdminOrder.userId, currentAdminOrder.id, 'cancelled');
-    
-    // Save the stage where it failed and reason
-    const updates = { cancelledStage: stage };
-    if(note) updates.cancelledReason = note;
-    
-    update(ref(database, `users/${currentAdminOrder.userId}/orders/${currentAdminOrder.id}`), updates);
+    const user = auth.currentUser;
+    if (!user) return;
 
-    closePopup('.admin-manage-popup');
-    currentAdminOrder.status = 'cancelled';
-    if(note) currentAdminOrder.cancelledReason = note;
-    renderAdminTable(window.allAdminOrders);
-    showAlert("Order cancelled.", "Success");
+    const payload = {
+        status: 'cancelled',
+        cancelledStage: stage,
+        cancelledReason: note || null
+    };
+
+    try {
+        const token = await user.getIdToken();
+        const response = await fetch(`${BACKEND_URL}/api/admin/orders/${currentAdminOrder.userId}/${currentAdminOrder.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error('Failed to cancel order.');
+
+        closePopup('.admin-manage-popup');
+        const orderInList = window.allAdminOrders.find(o => o.id === currentAdminOrder.id);
+        if (orderInList) {
+            orderInList.status = 'cancelled';
+            if(note) orderInList.cancelledReason = note;
+        }
+        renderAdminTable(window.allAdminOrders);
+        showAlert("Order cancelled.", "Success");
+    } catch (err) {
+        showAlert(err.message, "Error");
+    }
 };
 
 window.switchAdminTab = function(tabName) {
