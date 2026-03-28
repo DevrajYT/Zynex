@@ -3,11 +3,12 @@ const router = express.Router();
 const { db } = require('./firebaseAdmin');
 
 // @route   GET /api/giveaway/active
-// @desc    Get all active giveaways for users
+// @route   GET /api/giveaway
+// @desc    Get all giveaways for users
 // @access  Authenticated User (or Public if verifyFirebaseToken is not applied)
-router.get('/active', async (req, res) => {
+router.get('/', async (req, res) => {
     try {
-        const snapshot = await db.ref('giveaways').orderByChild('active').equalTo(true).once('value');
+        const snapshot = await db.ref('giveaways').once('value');
         if (!snapshot.exists()) {
             return res.json([]);
         }
@@ -19,17 +20,20 @@ router.get('/active', async (req, res) => {
                 id: child.key,
                 title: giveaway.title,
                 prize: giveaway.prize,
-                image: giveaway.image,
+                imageUrl: giveaway.imageUrl,
                 description: giveaway.description,
                 rules: giveaway.rules,
                 endDate: giveaway.endDate,
                 winnersCount: giveaway.winnersCount,
+                isActive: giveaway.isActive,
+                timestamp: giveaway.timestamp,
+                winners: giveaway.winners || (giveaway.winner ? [giveaway.winner] : []), // Consolidate winner data
                 // Do not expose sensitive admin-only fields like createdAt, updatedAt
             });
         });
         res.json(giveaways);
     } catch (err) {
-        console.error('Error fetching active giveaways:', err.message);
+        console.error('Error fetching giveaways:', err.message);
         res.status(500).send('Server Error');
     }
 });

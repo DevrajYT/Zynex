@@ -37,11 +37,10 @@ const auth = getAuth(app);
 const database = getDatabase(app);
 
 window.isUserLoggedIn = () => auth.currentUser;
-
 const provider = new GoogleAuthProvider();
 
 
-// ================= GOOGLE LOGIN =================
+// ================== AUTHENTICATION ==================
 window.googleLogin = function () {
     signInWithPopup(auth, provider)
         .then((result) => {
@@ -66,7 +65,6 @@ window.googleLogin = function () {
         });
 };
 
-// ================= REGISTER =================
 window.registerUser = function () {
     clearInlineErrors();
     const username = document.getElementById("reg-user").value;
@@ -105,9 +103,6 @@ window.registerUser = function () {
         });
 };
 
-
-
-// ================= LOGIN =================
 window.loginUser = function () {
     clearInlineErrors();
     const email = document.getElementById("login-email").value;
@@ -127,7 +122,71 @@ window.loginUser = function () {
         });
 };
 
-// ================= AUTH STATE LISTENER =================
+window.logoutUser = function () {
+    signOut(auth)
+        .then(() => {
+            // showAlert("Logged out successfully"); // Optional, reload handles it
+            window.location.reload();
+        })
+        .catch((error) => {
+            showAlert(error.message, "Error");
+        });
+};
+
+window.editUsername = function () {
+    showPrompt("Enter your new username:", (newName) => {
+        const user = auth.currentUser;
+        if (user) {
+            updateProfile(user, { displayName: newName }).then(() => {
+                // Also update in Database to ensure consistency
+                update(ref(database, "users/" + user.uid), { username: newName })
+                    .then(() => location.reload());
+            }).catch(err => showAlert(err.message, "Error"));
+        }
+    });
+};
+
+window.handleChangePassword = function() {
+    clearInlineErrors();
+    const oldPass = document.getElementById('cp-old').value;
+    const newPass = document.getElementById('cp-new').value;
+    const confirmPass = document.getElementById('cp-confirm').value;
+
+    let hasError = false;
+    if(!oldPass) { showInlineError('error-cp-old', 'Old password is required'); hasError = true; }
+    if(!newPass) { showInlineError('error-cp-new', 'New password is required'); hasError = true; }
+    if(newPass.length < 6) { showInlineError('error-cp-new', 'Password must be at least 6 characters'); hasError = true; }
+    if(newPass !== confirmPass) { showInlineError('error-cp-confirm', 'Passwords do not match'); hasError = true; }
+
+    if(hasError) return;
+
+    const user = auth.currentUser;
+    if(!user) return;
+
+    const credential = EmailAuthProvider.credential(user.email, oldPass);
+
+    reauthenticateWithCredential(user, credential).then(() => {
+        updatePassword(user, newPass).then(() => {
+            showAlert("Password updated successfully!", "Success");
+            closePopup('.change-password-popup');
+        }).catch(err => showInlineError('error-cp-new', err.message));
+    }).catch(err => {
+        showInlineError('error-cp-old', "Incorrect old password.");
+    });
+};
+
+window.deleteAccount = function() {
+    showConfirm("Are you sure you want to delete your account? This action cannot be undone.", () => {
+        const user = auth.currentUser;
+        deleteUser(user).then(() => {
+            showAlert("Account deleted.", "Goodbye");
+            window.location.href = "index.html";
+        }).catch(e => showAlert("Error: " + e.message + "\n(You may need to re-login to perform this action)"));
+    });
+};
+
+
+// ================== UI & STATE MANAGEMENT ==================
 onAuthStateChanged(auth, (user) => {
     const headerAuth = document.getElementById("headerAuthArea");
     const profileSection = document.getElementById("profileSection");
@@ -201,7 +260,7 @@ onAuthStateChanged(auth, (user) => {
                 // == New Logic: Review prompt on Orders Page Load ==
                 const isOrdersPage = window.location.pathname.includes('orders.html');
                 if (isOrdersPage) {
-                    const promptedOrdersKey = `zynex_review_prompted_orders_${user.uid}`;
+                    const promptedOrdersKey = `smmzynex_review_prompted_orders_${user.uid}`;
                     const promptedOrders = JSON.parse(localStorage.getItem(promptedOrdersKey) || '[]');
 
                     // Find the most recent completed order that has NOT been prompted for review
@@ -276,7 +335,7 @@ onAuthStateChanged(auth, (user) => {
                         const el = document.getElementById(key);
                         if (el && el.type === 'checkbox') el.checked = val;
                         // Sync local storage
-                        localStorage.setItem('zynex_setting_' + key, val);
+                        localStorage.setItem('smmzynex_setting_' + key, val);
                     }
                 }
 
@@ -385,87 +444,20 @@ onAuthStateChanged(auth, (user) => {
     checkGiveawayWinners(user);
 });
 
-
-// ================= LOGOUT =================
-window.logoutUser = function () {
-    signOut(auth)
-        .then(() => {
-            // showAlert("Logged out successfully"); // Optional, reload handles it
-            window.location.reload();
-        })
-        .catch((error) => {
-            showAlert(error.message, "Error");
-        });
-};
-
-
-// Edit Username
-window.editUsername = function () {
-    showPrompt("Enter your new username:", (newName) => {
-        const user = auth.currentUser;
-        if (user) {
-            updateProfile(user, { displayName: newName }).then(() => {
-                // Also update in Database to ensure consistency
-                update(ref(database, "users/" + user.uid), { username: newName })
-                    .then(() => location.reload());
-            }).catch(err => showAlert(err.message, "Error"));
-        }
-    });
-};
-
-window.handleChangePassword = function() {
-    clearInlineErrors();
-    const oldPass = document.getElementById('cp-old').value;
-    const newPass = document.getElementById('cp-new').value;
-    const confirmPass = document.getElementById('cp-confirm').value;
-
-    let hasError = false;
-    if(!oldPass) { showInlineError('error-cp-old', 'Old password is required'); hasError = true; }
-    if(!newPass) { showInlineError('error-cp-new', 'New password is required'); hasError = true; }
-    if(newPass.length < 6) { showInlineError('error-cp-new', 'Password must be at least 6 characters'); hasError = true; }
-    if(newPass !== confirmPass) { showInlineError('error-cp-confirm', 'Passwords do not match'); hasError = true; }
-
-    if(hasError) return;
-
-    const user = auth.currentUser;
-    if(!user) return;
-
-    const credential = EmailAuthProvider.credential(user.email, oldPass);
-
-    reauthenticateWithCredential(user, credential).then(() => {
-        updatePassword(user, newPass).then(() => {
-            showAlert("Password updated successfully!", "Success");
-            closePopup('.change-password-popup');
-        }).catch(err => showInlineError('error-cp-new', err.message));
-    }).catch(err => {
-        showInlineError('error-cp-old', "Incorrect old password.");
-    });
-};
-
-window.deleteAccount = function() {
-    showConfirm("Are you sure you want to delete your account? This action cannot be undone.", () => {
-        const user = auth.currentUser;
-        deleteUser(user).then(() => {
-            showAlert("Account deleted.", "Goodbye");
-            window.location.href = "index.html";
-        }).catch(e => showAlert("Error: " + e.message + "\n(You may need to re-login to perform this action)"));
-    });
-};
-
 window.toggleTheme = function(isDark) {
     if(isDark) document.body.classList.add('dark-mode');
     else document.body.classList.remove('dark-mode');
-    localStorage.setItem('zynex_dark_mode', isDark);
+    localStorage.setItem('smmzynex_dark_mode', isDark);
 };
 
 window.toggleCompact = function(isCompact) {
     if(isCompact) document.body.classList.add('compact-view');
     else document.body.classList.remove('compact-view');
-    localStorage.setItem('zynex_compact_view', isCompact);
+    localStorage.setItem('smmzynex_compact_view', isCompact);
 };
 
 window.saveSetting = function(key, value) {
-    localStorage.setItem('zynex_setting_' + key, value);
+    localStorage.setItem('smmzynex_setting_' + key, value);
     
     const user = auth.currentUser;
     if(user) {
@@ -475,8 +467,8 @@ window.saveSetting = function(key, value) {
 
 // Load settings on init
 document.addEventListener('DOMContentLoaded', () => {
-    if(localStorage.getItem('zynex_dark_mode') === 'true') document.body.classList.add('dark-mode');
-    if(localStorage.getItem('zynex_compact_view') === 'true') document.body.classList.add('compact-view');
+    if(localStorage.getItem('smmzynex_dark_mode') === 'true') document.body.classList.add('dark-mode');
+    if(localStorage.getItem('smmzynex_compact_view') === 'true') document.body.classList.add('compact-view');
 
     loadPublicReviews();
 
@@ -488,7 +480,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// ================= ORDER SYSTEM =================
+// Security: Basic HTML Sanitization
+window.sanitize = function(str) {
+    if (!str) return '';
+    const temp = document.createElement('div');
+    temp.textContent = str;
+    return temp.innerHTML;
+};
+
+// ================== ORDER SYSTEM ==================
 window.submitOrderToDB = async function(orderData, onSuccess, onError) {
     const user = auth.currentUser;
     if (!user) {
@@ -517,19 +517,7 @@ window.submitOrderToDB = async function(orderData, onSuccess, onError) {
     }
 };
 
-// ================= ORDER POPUP FLOW =================
-
-// Global state for the order process
-let currentOrder = {
-    service: null,
-    option: null,
-    price: 0,
-    min: 0,
-    max: 0
-};
-
 // Hardcoded Service Config for instant loading
-// NOTE: Please adjust these prices/names to match your backend's serviceConfig.js exactly!
 const LOCAL_SERVICE_CONFIG = {
     instagram: {
         title: "Instagram",
@@ -572,10 +560,38 @@ const LOCAL_SERVICE_CONFIG = {
     }
 };
 
+let SERVICE_CONFIG_CACHE = null;
+
 async function fetchServiceConfig() {
-    // Returns the configuration instantly without a network request
-    return LOCAL_SERVICE_CONFIG;
+    if (SERVICE_CONFIG_CACHE) {
+        return SERVICE_CONFIG_CACHE;
+    }
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/services`);
+        if (!response.ok) {
+            console.warn("Backend config fetch failed, using local fallback.");
+            return LOCAL_SERVICE_CONFIG;
+        }
+        const config = await response.json();
+        SERVICE_CONFIG_CACHE = config; // Cache it
+        return config;
+    } catch (error) {
+        console.error("Could not fetch service config from backend, using local fallback.", error);
+        // Fallback to local config if backend fails
+        return LOCAL_SERVICE_CONFIG;
+    }
 }
+
+// --- Order Popup Flow ---
+
+// Global state for the order process
+let currentOrder = {
+    service: null,
+    option: null,
+    price: 0,
+    min: 0,
+    max: 0
+};
 
 window.openServiceOptions = async function(serviceKey) {
     const optionsGrid = document.getElementById('service-options-grid');
@@ -789,7 +805,6 @@ window.processPayment = async function() {
     );
 };
 
-// ================= ORDER DETAILS POPUP =================
 window.openOrderDetails = function(orderId) {
     const orders = window.userOrders || {};
     // Find order by ID (checking both key and stored id property)
@@ -940,7 +955,43 @@ window.copyToClipboard = function(text, btn) {
         .catch(err => console.error("Failed to copy link.", err));
 };
 
-// ================= ADMIN DASHBOARD LOGIC =================
+
+// ================== ADMIN DASHBOARD ==================
+
+function generateAdminOrderRow(order, utrCounts) {
+    const status = order.status || 'pending';
+    const statusText = status === 'pending' ? 'Pending' : status.charAt(0).toUpperCase() + status.slice(1);
+    
+    const isDuplicateUTR = order.utr && utrCounts[order.utr] > 1;
+    const utrDisplay = isDuplicateUTR 
+        ? `<span class="utr-code" style="background:#ffebee; color:#c62828; border:1px solid #ffcdd2" title="Duplicate UTR detected!">${sanitize(order.utr)} <ion-icon name="warning"></ion-icon></span>` 
+        : `<div class="utr-code">${sanitize(order.utr || 'N/A')}</div>`;
+
+    const statusBadge = `<span class="status-badge" style="background:${getStatusColor(status)}; color:#fff; padding:4px 8px; border-radius:4px">${statusText}</span>`;
+
+    return `
+        <tr>
+            <td style="font-family:monospace; color:#666">#${order.id ? order.id.slice(-6) : '---'}</td>
+            <td>
+                <div style="font-weight:600">${sanitize(order.username)}</div>
+                <small style="color:#888; font-size:0.75rem; font-family:monospace">${order.userId.slice(0,8)}...</small>
+            </td>
+            <td>
+                <div>${order.service}</div>
+                <small style="color:#888">${order.option}</small>
+                <div style="font-size:0.75rem"><a href="${sanitize(order.link)}" target="_blank" style="color:#5c6cff">Link</a></div>
+            </td>
+            <td>
+                <div style="font-weight:600">₹${order.totalPrice}</div>
+                <small style="color:#666">Qty: ${order.amount || '-'}</small>
+            </td>
+            <td>${utrDisplay}</td>
+            <td>${statusBadge}</td>
+            <td><button class="view-btn" style="padding:6px 12px; font-size:0.75rem" onclick="openAdminManage('${order.userId}', '${order.id}')"><ion-icon name="create-outline"></ion-icon> Manage</button></td>
+        </tr>
+    `;
+}
+
 window.loadAdminDashboard = async function(user) {
     // REFACTOR: This function now fetches all data from the secure backend API
     // instead of listening directly to the database. This is more secure and scalable.
@@ -1005,66 +1056,20 @@ window.renderAdminStats = function(stats) {
     }
 };
 
-window.resetProfitChange = function() {
-    // This feature is disabled because profit is no longer calculated on the client.
-    showAlert("This feature has been disabled for security reasons.", "Info");
-};
-
 window.renderAdminTable = function(orders) {
     const tbody = document.getElementById('admin-orders-body');
     if (!tbody) return;
-    tbody.innerHTML = '';
 
     if (orders.length === 0) {
         tbody.innerHTML = "<tr><td colspan='7' style='text-align:center; padding:20px'>No matching orders found.</td></tr>";
         return;
     }
 
-    // Check for duplicate UTRs to flag potential spam
     const utrCounts = {};
     orders.forEach(o => { if(o.utr) utrCounts[o.utr] = (utrCounts[o.utr] || 0) + 1; });
 
-    orders.forEach(order => {
-        const date = new Date(order.timestamp).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
-        const status = order.status || 'pending';
-        const statusClass = status === 'completed' ? 'status-completed' : 'status-pending';
-        const statusText = status === 'pending' ? 'Pending' : status.charAt(0).toUpperCase() + status.slice(1);
-        
-        const isDuplicateUTR = order.utr && utrCounts[order.utr] > 1;
-        const utrDisplay = isDuplicateUTR 
-            ? `<span class="utr-code" style="background:#ffebee; color:#c62828; border:1px solid #ffcdd2" title="Duplicate UTR detected!">${sanitize(order.utr)} <ion-icon name="warning"></ion-icon></span>` 
-            : `<div class="utr-code">${sanitize(order.utr || 'N/A')}</div>`;
-
-        // Status Badge (Read Only)
-        const statusBadge = `<span class="status-badge ${statusClass}" style="background:${getStatusColor(status)}; color:#fff; padding:4px 8px; border-radius:4px">${statusText}</span>`;
-
-        const row = `
-            <tr>
-                <td style="font-family:monospace; color:#666">#${order.id ? order.id.slice(-6) : '---'}</td>
-                <td>
-                    <div style="font-weight:600">${sanitize(order.username)}</div>
-                    <small style="color:#888; font-size:0.75rem; font-family:monospace">${order.userId.slice(0,8)}...</small>
-                </td>
-                <td>
-                    <div>${order.service}</div>
-                    <small style="color:#888">${order.option}</small>
-                    <div style="font-size:0.75rem"><a href="${sanitize(order.link)}" target="_blank" style="color:#5c6cff">Link</a></div>
-                </td>
-                <td>
-                    <div style="font-weight:600">₹${order.totalPrice}</div>
-                    <small style="color:#666">Qty: ${order.amount || '-'}</small>
-                </td>
-                <td>
-                    ${utrDisplay}
-                </td>
-                <td>${statusBadge}</td>
-                <td>
-                    <button class="view-btn" style="padding:6px 12px; font-size:0.75rem" onclick="openAdminManage('${order.userId}', '${order.id}')"><ion-icon name="create-outline"></ion-icon> Manage</button>
-                </td>
-            </tr>
-        `;
-        tbody.insertAdjacentHTML('beforeend', row);
-    });
+    const tableHtml = orders.map(order => generateAdminOrderRow(order, utrCounts)).join('');
+    tbody.innerHTML = tableHtml;
 };
 
 function getStatusColor(status) {
@@ -1075,7 +1080,6 @@ function getStatusColor(status) {
     return '#ddd';
 }
 
-// ================= ADMIN USERS TAB =================
 window.renderAdminUsers = function(usersList) {
     // REFACTOR: This function now receives a clean user array from the API.
     const tbody = document.getElementById('admin-users-body');
@@ -1133,7 +1137,6 @@ window.filterAdminUsers = function() {
     });
 };
 
-// ================= ADMIN MANAGE POPUP =================
 let currentAdminOrder = null;
 
 window.openAdminManage = function(userId, orderId) {
@@ -1366,7 +1369,6 @@ window.confirmCancelOrder = function() {
     showAlert("Order cancelled.", "Success");
 };
 
-// ================= ADMIN UTILITIES =================
 window.switchAdminTab = function(tabName) {
     // Hide all tabs
     document.querySelectorAll('.admin-tab-content').forEach(el => el.style.display = 'none');
@@ -1386,7 +1388,7 @@ window.switchAdminTab = function(tabName) {
 
     // Clear notification for this tab (mark as seen)
     if (window.adminCounts && window.adminCounts[tabName] !== undefined) {
-        localStorage.setItem(`zynex_admin_seen_${tabName}`, window.adminCounts[tabName]);
+        localStorage.setItem(`smmzynex_admin_seen_${tabName}`, window.adminCounts[tabName]);
         const badge = document.getElementById(`admin-${tabName}-badge`);
         if(badge) badge.style.display = 'none';
         // Refresh sidebar badge to remove count
@@ -1412,7 +1414,7 @@ window.exportOrdersToCSV = function() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "zynex_orders_export.csv");
+    link.setAttribute("download", "smmzynex_orders_export.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1436,22 +1438,8 @@ window.clearAnnouncement = function() {
         });
 };
 
-// Security: Basic HTML Sanitization
-window.sanitize = function(str) {
-    if (!str) return '';
-    const temp = document.createElement('div');
-    temp.textContent = str;
-    return temp.innerHTML;
-};
-
-// ================= TICKET SYSTEM =================
-
-// Global listeners to handle real-time updates
+// ================== TICKET SYSTEM ==================
 let userTicketUnsub = null;
-let adminTicketUnsub = null;
-
-// --- User Side ---
-
 window.openSupportCenter = function() {
     if(userTicketUnsub) { userTicketUnsub(); userTicketUnsub = null; }
 
@@ -1718,8 +1706,7 @@ window.deleteUserTicket = function(ticketId) {
     });
 };
 
-// --- Admin Side ---
-
+let adminTicketUnsub = null;
 window.loadAdminTickets = function() {
     if (window.adminTicketsUnsub) window.adminTicketsUnsub();
 
@@ -1916,12 +1903,12 @@ window.updateAdminBadges = function(type, count) {
     const isTabActive = tabContent && tabContent.style.display !== 'none';
 
     // Get last seen count
-    let lastSeen = parseInt(localStorage.getItem(`zynex_admin_seen_${type}`) || '0');
+    let lastSeen = parseInt(localStorage.getItem(`smmzynex_admin_seen_${type}`) || '0');
 
     // If viewing tab, or if count decreased (items processed), update seen count
     if (isTabActive || count < lastSeen) {
         lastSeen = count;
-        localStorage.setItem(`zynex_admin_seen_${type}`, count);
+        localStorage.setItem(`smmzynex_admin_seen_${type}`, count);
     }
     
     // Update Tab Badge (Red Dot) - Show only if new items exist
@@ -1933,7 +1920,7 @@ window.updateAdminBadges = function(type, count) {
     let totalUnseen = 0;
     ['orders', 'tickets'].forEach(t => {
         const c = window.adminCounts[t] || 0;
-        const s = parseInt(localStorage.getItem(`zynex_admin_seen_${t}`) || '0');
+        const s = parseInt(localStorage.getItem(`smmzynex_admin_seen_${t}`) || '0');
         if (c > s) totalUnseen += (c - s);
     });
 
@@ -1958,8 +1945,7 @@ window.filterAdminTickets = function() {
     renderAdminTicketsTable(filtered);
 };
 
-// ================= NOTIFICATIONS SYSTEM =================
-
+// ================== NOTIFICATIONS SYSTEM ==================
 window.setupUserNotifications = function(user) {
     // 2. Ticket Updates
     const ticketsRef = ref(database, 'tickets');
@@ -1979,8 +1965,7 @@ window.setupUserNotifications = function(user) {
     });
 };
 
-// ================= GIVEAWAY SYSTEM =================
-// --- ADMIN SIDE ---
+// ================== GIVEAWAY SYSTEM ==================
 window.loadAdminGiveaways = function() {
     if(window.adminGiveawaysUnsub) window.adminGiveawaysUnsub();
 
@@ -2284,7 +2269,6 @@ window.rerollGiveaway = function(id, winnerUserId) {
     });
 };
 
-// --- PUBLIC SIDE ---
 window.submitGiveawayEntry = function() {
     clearInlineErrors();
     const user = auth.currentUser;
@@ -2312,9 +2296,22 @@ window.submitGiveawayEntry = function() {
             updates[`giveaway_user_entries/${user.uid}/${gaId}`] = igHandle;
             
             update(ref(database), updates).then(() => {
+                // --- INSTANT UI UPDATE ---
                 showAlert("You've successfully entered the giveaway! Good luck!", "Success");
                 closePopup('.giveaway-entry-popup');
                 document.getElementById('entry-ig-handle').value = '';
+                const user = auth.currentUser;
+                if (window.userEntriesData) {
+                    window.userEntriesData[gaId] = igHandle;
+                }
+                const giveawayToUpdate = window.giveawaysData && window.giveawaysData.find(g => g.id === gaId);
+                const cardContainer = document.getElementById(`ga-container-${gaId}`);
+
+                if (user && giveawayToUpdate && cardContainer) {
+                    const newCardHtml = generateSingleGiveawayCardHtml(giveawayToUpdate, window.userEntriesData, user);
+                    cardContainer.outerHTML = newCardHtml;
+                }
+                // --- END INSTANT UI UPDATE ---
             }).catch(err => showAlert(err.message, "Error"));
         }
     });
@@ -2325,7 +2322,7 @@ window.loadGiveawayPage = function() {
     const loadingState = document.getElementById('giveaway-loading-state'); // This will be hidden once content is loaded
     const loggedOutMessage = document.getElementById('giveaway-logged-out-message'); // This will be hidden
 
-    if(!container || !loadingState || !loggedOutMessage) { // Ensure all elements exist
+    if (!container || !loadingState || !loggedOutMessage) { // Ensure all elements exist
         console.warn("Giveaway page elements not found.");
         return; // Exit if elements are missing
     }
@@ -2337,21 +2334,15 @@ window.loadGiveawayPage = function() {
 
     const user = auth.currentUser; // Get current user from Firebase Auth
 
-    if(window.gaPageUnsub) {
-        window.gaPageUnsub(); // Unsubscribe from previous listener if any
+    // Stop any previous real-time listener
+    if (window.gaPageUnsub) {
+        window.gaPageUnsub();
         window.gaPageUnsub = null;
     }
 
-    if (!user) {
-        // If user is logged out, we still want to load and display giveaways.
-        // The buttons will reflect the logged-out state.
-        // No need to return here, proceed to fetch giveaways.
-    }
-
-    // User is logged in, proceed to load giveaways
+    // Use a realtime listener for instant loading and live updates.
     window.gaPageUnsub = onValue(ref(database, 'giveaways'), snap => {
-        loadingState.style.display = 'none'; // Hide loading once data starts coming
-        loggedOutMessage.style.display = 'none'; // Hide logged out message
+        loadingState.style.display = 'none';
 
         if(!snap.exists()) {
             container.innerHTML = `<div class="stat-card" style="text-align:center; padding: 60px 20px;">
@@ -2364,109 +2355,128 @@ window.loadGiveawayPage = function() {
 
         const giveaways = [];
         snap.forEach(c => { giveaways.push({id: c.key, ...c.val()}); });
+        // Sort giveaways to show active ones first, then by date.
         giveaways.sort((a,b) => (b.isActive === a.isActive) ? (b.timestamp - a.timestamp) : (b.isActive ? -1 : 1));
 
+        // Store for instant updates on entry
+        window.giveawaysData = giveaways;
+
         if(user) {
+            // Still need to fetch user-specific entries from Firebase RTDB
             get(ref(database, `giveaway_user_entries/${user.uid}`)).then(entrySnap => {
                 const userEntries = entrySnap.exists() ? entrySnap.val() : {};
+                window.userEntriesData = userEntries; // Store for instant updates
                 renderGiveawaysList(giveaways, userEntries, user, container);
             }).catch(err => {
                 console.error("Error fetching user entries:", err);
+                window.userEntriesData = {};
                 renderGiveawaysList(giveaways, {}, user, container);
             });
         } else {
+            // Render for logged-out user
+            window.userEntriesData = {};
             renderGiveawaysList(giveaways, {}, null, container);
-            // If user is null, renderGiveawaysList will handle the buttons
         }
+    }, (error) => {
+        console.error("Error loading giveaway page:", error);
+        loadingState.style.display = 'none';
+        container.innerHTML = `<div class="stat-card" style="text-align:center; padding: 60px 20px; color:red;">
+            <ion-icon name="alert-circle-outline" style="font-size: 64px; margin-bottom: 15px;"></ion-icon>
+            <h2>Error Loading Giveaways</h2>
+            <p style="color: #666; margin-top: 10px;">Could not load giveaway data. Please try again later.</p>
+        </div>`;
     });
 };
 
-function renderGiveawaysList(giveaways, userEntries, user, container) {
-    let html = '';
+function generateSingleGiveawayCardHtml(g, userEntries, user) {
+    const hasEntered = user && userEntries[g.id];
+    const userIgHandle = userEntries[g.id] || '';
     
-    giveaways.forEach(g => {
-        const hasEntered = !!userEntries[g.id];
-        const userIgHandle = userEntries[g.id] || '';
-        
-        let rulesHtml = '';
-        if(g.rules) {
-            g.rules.split('\n').forEach(r => {
-                if(r.trim()) rulesHtml += `<li><ion-icon name="checkmark-circle"></ion-icon> <span>${sanitize(r)}</span></li>`;
-            });
+    let rulesHtml = '';
+    if(g.rules) {
+        g.rules.split('\n').forEach(r => {
+            if(r.trim()) rulesHtml += `<li><ion-icon name="checkmark-circle"></ion-icon> <span>${sanitize(r)}</span></li>`;
+        });
+    } else {
+        rulesHtml = `<li><ion-icon name="checkmark-circle"></ion-icon> <span>Follow our Instagram</span></li>`;
+    }
+    
+    const isEnded = !g.isActive;
+    const winnersList = g.winners || (g.winner ? [g.winner] : []);
+    const imageUrl = g.imageUrl || g.image; // Handle both possible field names
+    const imgBg = imageUrl ? `background-image: url('${sanitize(imageUrl)}');` : `background: linear-gradient(135deg, #ff416c, #ff4b2b);`;
+    
+    let actionHtml = '';
+    if (isEnded) {
+        if(winnersList.length > 0) {
+            const handlesHtml = winnersList.map(w => `<div class="winner-handle" style="font-size:1rem; padding:8px 20px; margin:5px; box-shadow:0 4px 10px rgba(0,0,0,0.1);">@${sanitize(w.igHandle)}</div>`).join('');
+            actionHtml = `
+                <div class="ga-modern-action" style="background: linear-gradient(135deg, #FFD700 0%, #FFA000 100%); padding:20px; border-radius:12px; text-align:center; color:#fff;">
+                    <ion-icon name="trophy" style="font-size: 40px; margin-bottom: 10px;"></ion-icon>
+                    <h3 style="margin-bottom:15px; font-size:1.3rem;">Giveaway Ended!</h3>
+                    <p style="font-size:0.9rem; margin-bottom:10px; opacity:0.9;">Congratulations to our winner(s):</p>
+                    <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:5px;">${handlesHtml}</div>
+                </div>
+            `;
         } else {
-            rulesHtml = `<li><ion-icon name="checkmark-circle"></ion-icon> <span>Follow our Instagram</span></li>`;
+            actionHtml = `<div class="ga-modern-action" style="text-align:center; padding:20px; color:#999; background:#f9f9f9; border-radius:12px;">Giveaway Ended</div>`;
         }
-        
-        const isEnded = !g.isActive;
-        const winnersList = g.winners || (g.winner ? [g.winner] : []);
-        const imgBg = g.imageUrl ? `background-image: url('${sanitize(g.imageUrl)}');` : `background: linear-gradient(135deg, #ff416c, #ff4b2b);`;
-        
-        let actionHtml = '';
-        if (isEnded) {
-            if(winnersList.length > 0) {
-                const handlesHtml = winnersList.map(w => `<div class="winner-handle" style="font-size:1rem; padding:8px 20px; margin:5px; box-shadow:0 4px 10px rgba(0,0,0,0.1);">@${sanitize(w.igHandle)}</div>`).join('');
-                actionHtml = `
-                    <div class="ga-modern-action" style="background: linear-gradient(135deg, #FFD700 0%, #FFA000 100%); padding:20px; border-radius:12px; text-align:center; color:#fff;">
-                        <ion-icon name="trophy" style="font-size: 40px; margin-bottom: 10px;"></ion-icon>
-                        <h3 style="margin-bottom:15px; font-size:1.3rem;">Giveaway Ended!</h3>
-                        <p style="font-size:0.9rem; margin-bottom:10px; opacity:0.9;">Congratulations to our winner(s):</p>
-                        <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:5px;">${handlesHtml}</div>
-                    </div>
-                `;
-            } else {
-                actionHtml = `<div class="ga-modern-action" style="text-align:center; padding:20px; color:#999; background:#f9f9f9; border-radius:12px;">Giveaway Ended</div>`;
-            }
-        } else {
-            if (hasEntered) { // User is logged in AND has entered
-                actionHtml = `
-                    <div class="ga-modern-action entered-badge" style="margin:0; padding:15px; flex-direction:row; justify-content:center;">
-                        <ion-icon name="checkmark-circle" style="font-size:32px;"></ion-icon>
-                        <div>
-                            <h4 style="margin:0; font-size:1.1rem;">You're In!</h4>
-                            <p style="margin:0; font-size:0.85rem;">Registered as @${sanitize(userIgHandle)}</p>
-                        </div>
-                    </div>
-                `;
-            } else { // User is logged in OR logged out, but has NOT entered
-                actionHtml = `
-                    <div class="ga-modern-action">
-                        <button class="cta" onclick="openGiveawayPopup('${g.id}')" style="width: 100%; padding:15px; font-size:1.1rem; background: linear-gradient(135deg, #ff416c, #ff4b2b); box-shadow: 0 5px 15px rgba(255, 65, 108, 0.3);">
-                            <ion-icon name="gift-outline"></ion-icon> Enter Giveaway Now
-                        </button>
-                    </div>
-                `;
-            }
-        }
-
-        const opacity = isEnded ? '0.7' : '1';
-
-        html += `
-            <div class="giveaway-card-modern" style="opacity:${opacity};" id="ga-container-${g.id}">
-                <div class="ga-modern-banner" style="${imgBg}">
-                    ${isEnded ? `<div class="ga-modern-badge ended">Ended</div>` : `<div class="ga-modern-badge">Active</div>`}
-                    <div class="ga-modern-title-area">
-                        <h2>${sanitize(g.title || 'Giveaway')}</h2>
-                        <p>${sanitize(g.description || '')}</p>
+    } else {
+        if (hasEntered) { // User is logged in AND has entered
+            actionHtml = `
+                <div class="ga-modern-action entered-badge" style="margin:0; padding:15px; flex-direction:row; justify-content:center;">
+                    <ion-icon name="checkmark-circle" style="font-size:32px;"></ion-icon>
+                    <div>
+                        <h4 style="margin:0; font-size:1.1rem;">You're In!</h4>
+                        <p style="margin:0; font-size:0.85rem;">Registered as @${sanitize(userIgHandle)}</p>
                     </div>
                 </div>
-                
-                <div class="ga-modern-body">
-                    <div class="ga-modern-info">
-                        <div class="ga-modern-prize"><ion-icon name="gift"></ion-icon> ${sanitize(g.prize || 'Surprise')}</div>
-                        ${g.endDate && !isEnded ? `<div class="ga-modern-ends"><ion-icon name="time-outline"></ion-icon> Ends: ${new Date(g.endDate).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</div>` : ''}
-                    </div>
-                    
-                    <div class="ga-modern-rules">
-                        <h4><ion-icon name="list-outline" style="color:#5c6cff;"></ion-icon> How to Enter</h4>
-                        <ul>${rulesHtml}</ul>
-                    </div>
-                    
-                    ${actionHtml}
+            `;
+        } else { // User is logged in OR logged out, but has NOT entered
+            actionHtml = `
+                <div class="ga-modern-action">
+                    <button class="cta" onclick="openGiveawayPopup('${g.id}')" style="width: 100%; padding:15px; font-size:1.1rem; background: linear-gradient(135deg, #ff416c, #ff4b2b); box-shadow: 0 5px 15px rgba(255, 65, 108, 0.3);">
+                        <ion-icon name="gift-outline"></ion-icon> Enter Giveaway Now
+                    </button>
+                </div>
+            `;
+        }
+    }
+
+    const opacity = isEnded ? '0.7' : '1';
+
+    return `
+        <div class="giveaway-card-modern" style="opacity:${opacity};" id="ga-container-${g.id}">
+            <div class="ga-modern-banner" style="${imgBg}">
+                ${isEnded ? `<div class="ga-modern-badge ended">Ended</div>` : `<div class="ga-modern-badge">Active</div>`}
+                <div class="ga-modern-title-area">
+                    <h2>${sanitize(g.title || 'Giveaway')}</h2>
+                    <p>${sanitize(g.description || '')}</p>
                 </div>
             </div>
-        `;
+            
+            <div class="ga-modern-body">
+                <div class="ga-modern-info">
+                    <div class="ga-modern-prize"><ion-icon name="gift"></ion-icon> ${sanitize(g.prize || 'Surprise')}</div>
+                    ${g.endDate && !isEnded ? `<div class="ga-modern-ends"><ion-icon name="time-outline"></ion-icon> Ends: ${new Date(g.endDate).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</div>` : ''}
+                </div>
+                
+                <div class="ga-modern-rules">
+                    <h4><ion-icon name="list-outline" style="color:#5c6cff;"></ion-icon> How to Enter</h4>
+                    <ul>${rulesHtml}</ul>
+                </div>
+                
+                ${actionHtml}
+            </div>
+        </div>
+    `;
+}
+
+function renderGiveawaysList(giveaways, userEntries, user, container) {
+    let html = '';
+    giveaways.forEach(g => {
+        html += generateSingleGiveawayCardHtml(g, userEntries, user);
     });
-    
     container.innerHTML = html;
 }
 
@@ -2518,7 +2528,7 @@ window.checkGiveawayWinners = function(user) {
         const enteredGiveaways = snap.val();
         onValue(ref(database, 'giveaways'), gSnap => {
              if(!gSnap.exists()) return;
-             const seen = JSON.parse(localStorage.getItem(`zynex_seen_winners_${user.uid}`) || '{}');
+             const seen = JSON.parse(localStorage.getItem(`smmzynex_seen_winners_${user.uid}`) || '{}');
              gSnap.forEach(child => {
                  const g = child.val();
                  const gid = child.key;
@@ -2528,15 +2538,14 @@ window.checkGiveawayWinners = function(user) {
                      const isWinner = winnersList.some(w => w.userId === user.uid);
                      setTimeout(() => showWinnerPopup(g, isWinner), 1000);
                      seen[gid] = true;
-                     localStorage.setItem(`zynex_seen_winners_${user.uid}`, JSON.stringify(seen));
+                     localStorage.setItem(`smmzynex_seen_winners_${user.uid}`, JSON.stringify(seen));
                  }
              });
         });
     });
 };
 
-// ================= REVIEW SYSTEM =================
-
+// ================== REVIEW SYSTEM ==================
 window.openReviewPopup = function() {
     const user = auth.currentUser;
     if (!user) {

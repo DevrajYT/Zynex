@@ -93,8 +93,9 @@ router.post('/orders', verifyFirebaseToken, async (req, res) => {
     try {
         // Use a multi-path update to write to both locations atomically, ensuring data consistency.
         const updates = {};
-        updates[`/users/${uid}/orders/${orderId}`] = newOrder;
-        updates[`/utrs/${utr}`] = { orderId: orderId, userId: uid, timestamp: Date.now() };
+        updates[`users/${uid}/orders/${orderId}`] = newOrder;
+        updates[`utrs/${utr}`] = { orderId: orderId, userId: uid, timestamp: Date.now() };
+        updates[`all_orders/${orderId}`] = newOrder; // Denormalized for fast admin queries
 
         await db.ref().update(updates);
 

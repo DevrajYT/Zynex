@@ -11,30 +11,30 @@ const { costPrices } = require('./serviceConfig');
 // @access  Admin
 router.get('/orders', async (req, res) => {
     try {
-        const usersRef = db.ref('users');
-        const snapshot = await usersRef.once('value');
+        // OPTIMIZED: Read from the denormalized /all_orders path instead of iterating all users.
+        const ordersRef = db.ref('all_orders');
+        const snapshot = await ordersRef.once('value');
         if (!snapshot.exists()) {
             return res.json([]);
         }
 
-        const users = snapshot.val();
-        let allOrders = [];
+        const allOrders = Object.values(snapshot.val());
 
-        Object.keys(users).forEach(userId => {
-            const userData = users[userId];
-            if (userData.orders) {
-                Object.values(userData.orders).forEach(order => {
-                    allOrders.push({
-                        ...order,
-                        userId: userId,
-                        username: userData.username || userData.email
-                    });
-                });
-            }
+        // To enrich orders with usernames, we fetch all users once.
+        const usersRef = db.ref('users');
+        const usersSnapshot = await usersRef.once('value');
+        const users = usersSnapshot.val() || {};
+
+        const ordersWithUsername = allOrders.map(order => {
+            const userData = users[order.userId] || {};
+            return {
+                ...order,
+                username: userData.username || userData.email || 'Unknown User'
+            };
         });
 
-        allOrders.sort((a, b) => b.timestamp - a.timestamp);
-        res.json(allOrders);
+        ordersWithUsername.sort((a, b) => b.timestamp - a.timestamp);
+        res.json(ordersWithUsername);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');
@@ -60,11 +60,12 @@ router.put('/orders/:userId/:orderId', async (req, res) => {
             return res.status(404).json({ msg: 'Order not found.' });
         }
 
+        const originalOrder = snapshot.val();
         const updates = {};
-        if (status) updates.status = status;
-        if (link) updates.link = link;
-        if (utr) updates.utr = utr;
-        if (cancelledReason) updates.cancelledReason = cancelledReason;
+        if (status !== undefined) updates.status = status;
+        if (link !== undefined) updates.link = link;
+        if (utr !== undefined) updates.utr = utr;
+        if (cancelledReason !== undefined) updates.cancelledReason = cancelledReason;
         if (cancelledStage !== undefined) updates.cancelledStage = cancelledStage;
         
         // If moving out of cancelled state, clear cancellation reasons
@@ -73,7 +74,15 @@ router.put('/orders/:userId/:orderId', async (req, res) => {
             updates.cancelledStage = null;
         }
 
-        await orderRef.update(updates);
+        const updatedOrder = { ...originalOrder, ...updates };
+
+        // Use a multi-path update for atomicity
+        const multiPathUpdates = {};
+        multiPathUpdates[`users/${userId}/orders/${orderId}`] = updatedOrder;
+        multiPathUpdates[`all_orders/${orderId}`] = updatedOrder;
+
+        await db.ref().update(multiPathUpdates);
+
         res.json({ msg: 'Order updated successfully.' });
     } catch (err) {
         console.error(err.message);
@@ -87,8 +96,12 @@ router.put('/orders/:userId/:orderId', async (req, res) => {
 router.delete('/orders/:userId/:orderId', async (req, res) => {
     const { userId, orderId } = req.params;
     try {
-        const orderRef = db.ref(`users/${userId}/orders/${orderId}`);
-        await orderRef.remove();
+        // Use a multi-path update to remove from both locations atomically
+        const multiPathUpdates = {};
+        multiPathUpdates[`users/${userId}/orders/${orderId}`] = null;
+        multiPathUpdates[`all_orders/${orderId}`] = null;
+
+        await db.ref().update(multiPathUpdates);
         res.json({ msg: 'Order deleted successfully.' });
     } catch (err) {
         console.error(err.message);

@@ -16,6 +16,7 @@ const userRoutes = require('./userRoutes');
 const orderRoutes = require('./orderRoutes');
 const ticketRoutes = require('./ticketRoutes');
 const adminRoutes = require('./adminRoutes');
+const giveawayRoutes = require('./giveawayRoutes');
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use(express.json()); // To parse JSON bodies
 app.use('/api', userRoutes);
 app.use('/api', orderRoutes);
 app.use('/api', ticketRoutes);
+app.use('/api/giveaway', giveawayRoutes);
 
 // Admin routes are protected by both auth and admin checks
 app.use('/api/admin', verifyFirebaseToken, checkAdmin, adminRoutes);
@@ -50,7 +52,7 @@ app.use('/api/admin', verifyFirebaseToken, checkAdmin, adminRoutes);
 
 // --- Health Check Route ---
 app.get('/', (req, res) => {
-    res.send('Zynex Backend is running!');
+    res.send('Smmzynex Backend is running!');
 });
 
 // --- Server Listening ---

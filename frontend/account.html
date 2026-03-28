@@ -4,7 +4,7 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Account — Zynex</title>
+	<title>Account — Smmzynex</title>
 	<link rel="stylesheet" href="style.css">
 	<link rel="icon" type="image/png" href="logo.png">
 	<script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
@@ -17,7 +17,7 @@
 <body>
 
 	<aside class="sidebar" aria-label="Sidebar">
-		<div class="brand"><a href="index.html">Zynex</a></div>
+		<div class="brand"><a href="index.html">Smmzynex</a></div>
 
 		<ul class="nav-list">
 			<li><a href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
@@ -29,7 +29,7 @@
 
 		<div class="section-title">AUTH</div>
 		<ul class="nav-list">
-			<li><a class="active" href="account.html"><ion-icon name="person-outline"></ion-icon>Profile</a></li>
+			<li><a href="account.html"><ion-icon name="person-outline"></ion-icon>Profile</a></li>
 		</ul>
 
         <div id="admin-section-title" class="section-title" style="display:none">ADMIN</div>
@@ -309,10 +309,10 @@
 	<div class="popup terms-popup" role="dialog" aria-hidden="true">
 		<div class="popup-content" style="max-width:600px; text-align:left; max-height:80vh; overflow-y:auto">
 			<button class="close-icon" onclick="closePopup('.terms-popup')" style="position:sticky; top:0; float:right; background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
-			<h2>Terms of Service</h2>
+			<h2 style="text-align: center;">Terms of Service</h2>
 			<div style="font-size:0.95rem; line-height:1.6; color:#333; margin-top:15px">
-				<p style="margin-bottom:10px"><strong>1. Acceptance of Terms</strong><br>By accessing and using Zynex, you accept and agree to be bound by the terms and provision of this agreement.</p>
-				<p style="margin-bottom:10px"><strong>2. Service Delivery</strong><br>Zynex is not affiliated with Instagram, Facebook, or YouTube. It is your sole responsibility to comply with the rules and any legislation that you are subject to. You use the service at your own risk.</p>
+				<p style="margin-bottom:10px"><strong>1. Acceptance of Terms</strong><br>By accessing and using Smmzynex, you accept and agree to be bound by the terms and provision of this agreement.</p>
+				<p style="margin-bottom:10px"><strong>2. Service Delivery</strong><br>Smmzynex is not affiliated with Instagram, Facebook, or YouTube. It is your sole responsibility to comply with the rules and any legislation that you are subject to. You use the service at your own risk.</p>
 				<p style="margin-bottom:10px"><strong>3. Refunds</strong><br>Completed orders are non-refundable. If payment verification is successful but the order cannot be processed, please open a ticket with your Order ID and UPI details to receive a refund.</p>
 				<p style="margin-bottom:10px"><strong>4. Privacy</strong><br>We take your privacy seriously and will take all measures to protect your personal information. Any personal information received will only be used to fill your order.</p>
 			</div>
@@ -340,11 +340,11 @@
 	<script>
 		// Sync UI with saved settings on load
 		document.addEventListener('DOMContentLoaded', () => {
-			if(localStorage.getItem('zynex_dark_mode') === 'true') document.getElementById('darkModeToggle').checked = true;
-			if(localStorage.getItem('zynex_compact_view') === 'true') document.getElementById('compactModeToggle').checked = true;
+			if(localStorage.getItem('smmzynex_dark_mode') === 'true') document.getElementById('darkModeToggle').checked = true;
+			if(localStorage.getItem('smmzynex_compact_view') === 'true') document.getElementById('compactModeToggle').checked = true;
 			
 			['emailUpdates', 'pushNotifs', 'promoOffers'].forEach(id => {
-				const val = localStorage.getItem('zynex_setting_' + id);
+				const val = localStorage.getItem('smmzynex_setting_' + id);
 				if(val !== null) document.getElementById(id).checked = (val === 'true');
 			});
 		});
