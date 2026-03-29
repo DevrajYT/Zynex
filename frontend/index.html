@@ -28,7 +28,7 @@
 <body>
 
     <aside class="sidebar" aria-label="Sidebar">
-        <div class="brand"><ion-icon name="layers-outline"></ion-icon><a href="index.html">Zynex</a></div>
+        <div class="brand"><a href="index.html">Zynex</a></div>
 
         <ul class="nav-list">
             <li><a class="active" href="index.html"><ion-icon name="grid-outline"></ion-icon>Dashboard</a></li>
@@ -230,15 +230,15 @@
                     <div class="form-group" style="margin-bottom:15px;">
                         <label for="order-link" id="label-link" style="font-weight:600; color:#333; font-size:0.9rem; margin-bottom:8px; display:block;">Link</label>
                         <div style="position:relative;">
-                            <ion-icon name="link-outline" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#888; font-size:1.2rem;"></ion-icon>
+                            <ion-icon name="link-outline" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#888; font-size:1.2rem;"></ion-icon> 
                             <input type="url" id="order-link" class="form-input" placeholder="https://..." style="padding-left:40px; height:45px; border-radius:10px;">
                         </div>
                         <small id="error-link" class="error-text" style="color:#ff4d4f; display:none; margin-top:6px; font-size:0.85rem;"></small>
                     </div>
 
-                    <div style="background: #fff8e1; border: 1px solid #ffe082; color: #f57c00; padding: 10px 12px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                    <div id="public-account-note" style="background: #fff8e1; border: 1px solid #ffe082; color: #f57c00; padding: 10px 12px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
                         <ion-icon name="warning-outline" style="font-size: 1.2rem; flex-shrink: 0;"></ion-icon> <strong>Note:</strong> Your account must be public. Private accounts cannot be processed.
-                    </div>
+                    </div> 
 
                     <div class="form-group" style="margin-bottom:0;">
                         <label for="order-amount" style="font-weight:600; color:#333; font-size:0.9rem; margin-bottom:8px; display:block;">Amount</label>
@@ -259,8 +259,8 @@
                 </div>
 
                 <div style="display:flex; flex-direction:column; gap:12px;">
-                    <button class="btn-white-primary" style="width:100%" onclick="submitOrder()"><ion-icon name="card-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Proceed to Payment</button>
-                    <button class="btn-white-secondary" style="width:100%" onclick="backToOptions()"><ion-icon name="arrow-back-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Back to Options</button>
+                    <button class="cta" style="width:100%" onclick="submitOrder()"><ion-icon name="card-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Proceed to Payment</button>
+                    <button class="btn-outline" style="width:100%" onclick="backToOptions()"><ion-icon name="arrow-back-outline" style="margin-right:8px; font-size:1.2rem;"></ion-icon> Back to Options</button>
                 </div>
             </div>
         </div>
@@ -291,10 +291,10 @@
                 <small id="error-utr" class="error-text" style="color:#ff4d4f; display:none; margin-top:6px; font-size:0.85rem; text-align:center;"></small>
             </div>
             <div style="display:flex; flex-direction:column; gap:12px;">
-                <button id="btn-verify-payment" class="btn-white-success" style="width:100%" onclick="processPayment()"><ion-icon name="checkmark-circle-outline" style="margin-right:8px; font-size:1.3rem;"></ion-icon> Verify & Submit Order</button>
+                <button id="btn-verify-payment" class="cta" style="width:100%" onclick="processPayment()"><ion-icon name="checkmark-circle-outline" style="margin-right:8px; font-size:1.3rem;"></ion-icon> Verify & Submit Order</button>
                 <div style="display:flex; gap:12px;">
-                    <button class="btn-white-secondary" style="flex:1" onclick="backToOrder()"><ion-icon name="arrow-back-outline" style="margin-right:5px;"></ion-icon> Back</button>
-                    <button class="btn-white-info" style="flex:1" onclick="openPopup('.tutorial-popup')"><ion-icon name="help-circle-outline" style="margin-right:5px;"></ion-icon> How to Pay?</button>
+                    <button class="btn-outline" style="flex:1" onclick="backToOrder()"><ion-icon name="arrow-back-outline" style="margin-right:5px;"></ion-icon> Back</button>
+                    <button class="btn-outline" style="flex:1" onclick="openPopup('.tutorial-popup')"><ion-icon name="help-circle-outline" style="margin-right:5px;"></ion-icon> How to Pay?</button>
                 </div>
             </div>
         </div>

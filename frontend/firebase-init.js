@@ -30,7 +30,7 @@ const firebaseConfig = {
 
 // --- CONFIGURATION ---
 // window.BACKEND_URL = "http://localhost:10000"; // Local Testing
-window.BACKEND_URL = "https://zynex-backend.onrender.com"; // Production
+window.BACKEND_URL = "https://zynex-backend.onrender.com"; // Render Testing
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -527,30 +527,57 @@ let currentOrder = {
     min: 0,
     max: 0
 };
-let serviceConfigCache = null;
+
+// Hardcoded Service Config for instant loading
+// NOTE: Please adjust these prices/names to match your backend's serviceConfig.js exactly!
+const LOCAL_SERVICE_CONFIG = {
+    instagram: {
+        title: "Instagram",
+        options: [
+            { name: "Followers", price: 0.4, icon: "people-outline", min: 10, max: 10000 },
+            { name: "Likes", price: 0.05, icon: "heart-outline", min: 100, max: 100000 },
+            { name: "Views", price: 0.01, icon: "eye-outline", min: 100, max: 1000000 },
+            { name: "Comments", price: 0.5, icon: "chatbubble-outline", min: 50, max: 50000 },
+            { name: "Reel Repost", price: 0.3, icon: "repeat-outline", min: 10, max: 1000 },
+            { name: "Reel Save", price: 0.1, icon: "bookmark-outline", min: 10, max: 100000 },
+            { name: "Reel Share", price: 0.2, icon: "share-social-outline", min: 10, max: 100000 },
+            { name: "Story Views", price: 0.05, icon: "aperture-outline", min: 100, max: 10000 }
+        ]
+    },
+    youtube: {
+        title: "YouTube",
+        options: [
+            { name: "Subscribers", price: 4.0, icon: "person-add-outline", min: 10, max: 10000 },
+            { name: "Likes", price: 0.2, icon: "thumbs-up-outline", min: 50, max: 10000 },
+            { name: "Views", price: 0.7, icon: "play-circle-outline", min: 100, max: 100000 },
+            { name: "Comment Likes", price: 0.030, icon: "heart-circle-outline", min: 100, max: 100000 }
+        ]
+    },
+    facebook: {
+        title: "Facebook",
+        options: [
+            { name: "Followers", price: 0.4, icon: "people-outline", min: 10, max: 10000 },
+            { name: "Likes", price: 0.1, icon: "thumbs-up-outline", min: 50, max: 100000 },
+            { name: "Video Views", price: 0.04, icon: "videocam-outline", min: 100, max: 100000 }
+        ]
+    },
+    telegram: {
+        title: "Telegram",
+        options: [
+            { name: "Members", price: 0.3, icon: "people-outline", min: 10, max: 100000 },
+            { name: "Views", price: 0.02, icon: "eye-outline", min: 50, max: 100000 },
+            { name: "Post Share", price: 0.02, icon: "share-social-outline", min: 50, max: 100000 },
+            { name: "Comments", price: 0.6, icon: "chatbubbles-outline", min: 50, max: 10000 }
+        ]
+    }
+};
 
 async function fetchServiceConfig() {
-    if (serviceConfigCache) {
-        return serviceConfigCache;
-    }
-    try {
-        const response = await fetch(`${window.BACKEND_URL}/api/services`);
-        if (!response.ok) throw new Error('Could not load services.');
-        serviceConfigCache = await response.json();
-        return serviceConfigCache;
-    } catch (error) {
-        console.error("Failed to fetch service config:", error);
-        showAlert(error.message, "Error");
-        return null;
-    }
+    // Returns the configuration instantly without a network request
+    return LOCAL_SERVICE_CONFIG;
 }
 
 window.openServiceOptions = async function(serviceKey) {
-    if (!window.isUserLoggedIn()) {
-        openPopup('.login-required-popup');
-        return;
-    }
-
     const optionsGrid = document.getElementById('service-options-grid');
     const orderForm = document.getElementById('service-order-form');
     const popupTitle = document.getElementById('service-popup-title');
@@ -558,32 +585,49 @@ window.openServiceOptions = async function(serviceKey) {
     // Reset view
     orderForm.style.display = 'none';
     optionsGrid.style.display = 'grid';
-    optionsGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: #999;">Loading options...</p>';
+    optionsGrid.innerHTML = '<p style="text-align: center; color: #999;">Loading options...</p>';
     openPopup('.service-popup');
 
     const config = await fetchServiceConfig();
-    if (!config || !config[serviceKey]) {
+    const normalizedKey = serviceKey.toLowerCase();
+    if (!config || !config[normalizedKey]) {
         optionsGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: red;">Could not load options for this service.</p>';
         return;
     }
 
-    const serviceData = config[serviceKey];
+    const serviceData = config[normalizedKey];
     popupTitle.innerText = `Select a ${serviceData.title} Service`;
     optionsGrid.innerHTML = '';
+
+    let iconBg = 'rgba(92, 108, 255, 0.1)';
+    let iconColor = '#5c6cff';
+    if (normalizedKey === 'instagram') { iconBg = 'rgba(193, 53, 132, 0.1)'; iconColor = '#C13584'; }
+    else if (normalizedKey === 'youtube') { iconBg = 'rgba(255, 0, 0, 0.1)'; iconColor = '#FF0000'; }
+    else if (normalizedKey === 'facebook') { iconBg = 'rgba(24, 119, 242, 0.1)'; iconColor = '#1877F2'; }
+    else if (normalizedKey === 'telegram') { iconBg = 'rgba(0, 136, 204, 0.1)'; iconColor = '#0088cc'; }
 
     serviceData.options.forEach(opt => {
         if (opt.disabled) return;
         const btn = document.createElement('button');
-        btn.className = 'service-opt-btn';
-        btn.onclick = () => selectServiceOption(serviceKey, opt.name);
-        btn.innerHTML = `<ion-icon name="${opt.icon || 'ellipse-outline'}"></ion-icon><span>${opt.name}</span>`;
+        btn.className = 'service-option-button'; // Replaced 'action-card service-opt-card' and inline styles
+        btn.onclick = () => selectServiceOption(normalizedKey, opt.name);
+        btn.innerHTML = `
+            <div class="icon-wrapper" style="background:${iconBg}; color:${iconColor};">
+                <ion-icon name="${opt.icon || 'ellipse-outline'}"></ion-icon>
+            </div>
+            <div class="details">
+                <h3>${opt.name}</h3>
+                <p>₹${opt.price} / unit • Min: ${opt.min}</p>
+            </div>
+        `;
         optionsGrid.appendChild(btn);
     });
 };
 
 window.selectServiceOption = async function(serviceKey, optionName) {
     const config = await fetchServiceConfig();
-    const serviceData = config[serviceKey];
+    const normalizedKey = serviceKey.toLowerCase();
+    const serviceData = config[normalizedKey];
     const optionData = serviceData.options.find(opt => opt.name === optionName);
 
     if (!optionData) {
@@ -600,8 +644,38 @@ window.selectServiceOption = async function(serviceKey, optionName) {
         max: optionData.max
     };
 
+    // Dynamic Link Label Logic
+    let linkLabel = `Enter ${serviceData.title} Link`;
+    const optLower = optionData.name.toLowerCase();
+    
+    if (normalizedKey === 'instagram') {
+        if (optLower.includes('follower')) linkLabel = 'Profile Link';
+        else if (optLower.includes('story')) linkLabel = 'Story Link';
+        else linkLabel = 'Post/Reel Link';
+    } else if (normalizedKey === 'youtube') {
+        if (optLower.includes('subscriber')) linkLabel = 'Channel Link';
+        else linkLabel = 'Video Link';
+    } else if (normalizedKey === 'facebook') {
+        if (optLower.includes('follower') || optLower.includes('page')) linkLabel = 'Page/Profile Link';
+        else linkLabel = 'Post/Video Link';
+    } else if (normalizedKey === 'telegram') {
+        if (optLower.includes('member')) linkLabel = 'Channel/Group Link';
+        else linkLabel = 'Post Link';
+    }
+
+    // Show/hide public account note based on service
+    const noteEl = document.getElementById('public-account-note');
+    if (noteEl) {
+        if (normalizedKey === 'youtube' || normalizedKey === 'telegram') {
+            noteEl.style.display = 'none';
+        } else {
+            noteEl.style.display = 'flex';
+        }
+    }
+
     // Update UI
-    document.getElementById('label-link').innerText = `Enter ${serviceData.title} Link`;
+    document.getElementById('service-popup-title').innerText = optionData.name;
+    document.getElementById('label-link').innerText = linkLabel;
     document.getElementById('order-limits').innerText = `Min: ${optionData.min}, Max: ${optionData.max}`;
     document.getElementById('order-amount').value = '';
     document.getElementById('order-total').innerText = '0';
@@ -616,7 +690,7 @@ window.selectServiceOption = async function(serviceKey, optionName) {
 window.backToOptions = function() {
     document.getElementById('service-order-form').style.display = 'none';
     document.getElementById('service-options-grid').style.display = 'grid';
-    document.getElementById('service-popup-title').innerText = `Select a ${currentOrder.service} Service`;
+    document.getElementById('service-popup-title').innerText = `Select a ${currentOrder.service || ''} Service`;
     currentOrder = {}; // Clear current order state
 };
 
@@ -632,6 +706,11 @@ window.calculateTotal = function() {
 };
 
 window.submitOrder = function() {
+    if (!window.isUserLoggedIn()) {
+        openPopup('.login-required-popup');
+        return;
+    }
+
     clearInlineErrors();
     const link = document.getElementById('order-link').value.trim();
     const amount = parseInt(document.getElementById('order-amount').value, 10);
@@ -2243,13 +2322,37 @@ window.submitGiveawayEntry = function() {
 
 window.loadGiveawayPage = function() {
     const container = document.getElementById('giveaway-page-content');
-    if(!container) return;
-    
-    const user = auth.currentUser;
-    
-    if(window.gaPageUnsub) window.gaPageUnsub();
-    
+    const loadingState = document.getElementById('giveaway-loading-state'); // This will be hidden once content is loaded
+    const loggedOutMessage = document.getElementById('giveaway-logged-out-message'); // This will be hidden
+
+    if(!container || !loadingState || !loggedOutMessage) { // Ensure all elements exist
+        console.warn("Giveaway page elements not found.");
+        return; // Exit if elements are missing
+    }
+
+    // Always start by showing loading and hiding others, then show container
+    loadingState.style.display = 'block';
+    loggedOutMessage.style.display = 'none';
+    container.style.display = 'block'; // Always show the main content container
+
+    const user = auth.currentUser; // Get current user from Firebase Auth
+
+    if(window.gaPageUnsub) {
+        window.gaPageUnsub(); // Unsubscribe from previous listener if any
+        window.gaPageUnsub = null;
+    }
+
+    if (!user) {
+        // If user is logged out, we still want to load and display giveaways.
+        // The buttons will reflect the logged-out state.
+        // No need to return here, proceed to fetch giveaways.
+    }
+
+    // User is logged in, proceed to load giveaways
     window.gaPageUnsub = onValue(ref(database, 'giveaways'), snap => {
+        loadingState.style.display = 'none'; // Hide loading once data starts coming
+        loggedOutMessage.style.display = 'none'; // Hide logged out message
+
         if(!snap.exists()) {
             container.innerHTML = `<div class="stat-card" style="text-align:center; padding: 60px 20px;">
                 <ion-icon name="sad-outline" style="font-size: 64px; color: #ccc; margin-bottom: 15px;"></ion-icon>
@@ -2273,6 +2376,7 @@ window.loadGiveawayPage = function() {
             });
         } else {
             renderGiveawaysList(giveaways, {}, null, container);
+            // If user is null, renderGiveawaysList will handle the buttons
         }
     });
 };
@@ -2313,16 +2417,7 @@ function renderGiveawaysList(giveaways, userEntries, user, container) {
                 actionHtml = `<div class="ga-modern-action" style="text-align:center; padding:20px; color:#999; background:#f9f9f9; border-radius:12px;">Giveaway Ended</div>`;
             }
         } else {
-            if (!user) {
-                actionHtml = `
-                    <div class="ga-modern-action">
-                        <button class="cta" onclick="window.location.href='account.html?login=true'" style="width: 100%; background: #333; padding:15px; font-size:1.05rem;">
-                            <ion-icon name="lock-closed-outline"></ion-icon> Login to Enter
-                        </button>
-                        <p style="text-align:center; font-size:0.8rem; color:#888; margin-top:10px;">You must be logged in to participate.</p>
-                    </div>
-                `;
-            } else if (hasEntered) {
+            if (hasEntered) { // User is logged in AND has entered
                 actionHtml = `
                     <div class="ga-modern-action entered-badge" style="margin:0; padding:15px; flex-direction:row; justify-content:center;">
                         <ion-icon name="checkmark-circle" style="font-size:32px;"></ion-icon>
@@ -2332,7 +2427,7 @@ function renderGiveawaysList(giveaways, userEntries, user, container) {
                         </div>
                     </div>
                 `;
-            } else {
+            } else { // User is logged in OR logged out, but has NOT entered
                 actionHtml = `
                     <div class="ga-modern-action">
                         <button class="cta" onclick="openGiveawayPopup('${g.id}')" style="width: 100%; padding:15px; font-size:1.1rem; background: linear-gradient(135deg, #ff416c, #ff4b2b); box-shadow: 0 5px 15px rgba(255, 65, 108, 0.3);">
