@@ -96,6 +96,45 @@ router.delete('/orders/:userId/:orderId', async (req, res) => {
     }
 });
 
+// @route   GET /api/admin/giveaways
+// @desc    Get all giveaways with entry counts
+// @access  Admin
+router.get('/giveaways', async (req, res) => {
+    try {
+        const giveawaysRef = db.ref('giveaways');
+        const entriesRef = db.ref('giveaway_entries');
+
+        const [giveawaysSnap, entriesSnap] = await Promise.all([
+            giveawaysRef.once('value'),
+            entriesRef.once('value')
+        ]);
+
+        if (!giveawaysSnap.exists()) {
+            return res.json([]);
+        }
+
+        const allGiveaways = [];
+        const allEntries = entriesSnap.val() || {};
+
+        giveawaysSnap.forEach(child => {
+            const giveaway = child.val();
+            const giveawayId = child.key;
+            const entriesCount = allEntries[giveawayId] ? Object.keys(allEntries[giveawayId]).length : 0;
+            
+            allGiveaways.push({
+                id: giveawayId,
+                ...giveaway,
+                entriesCount: entriesCount
+            });
+        });
+
+        allGiveaways.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        res.json(allGiveaways);
+    } catch (err) {
+        console.error('Error fetching admin giveaways:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
 
 // @route   GET /api/admin/stats
 // @desc    Get dashboard statistics

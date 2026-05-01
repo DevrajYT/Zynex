@@ -53,7 +53,7 @@ router.post('/enter', async (req, res) => {
             return res.status(404).json({ msg: 'Giveaway not found or not active.' });
         }
 
-        const entryRef = db.ref(`giveawayEntries/${giveawayId}/${userId}`);
+        const entryRef = db.ref(`giveaway_entries/${giveawayId}/${userId}`);
         const existingEntry = await entryRef.once('value');
 
         if (existingEntry.exists()) {

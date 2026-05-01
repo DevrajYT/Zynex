@@ -942,42 +942,49 @@ window.copyToClipboard = function(text, btn) {
 
 // ================= ADMIN DASHBOARD LOGIC =================
 window.loadAdminDashboard = async function(user) {
-    // REFACTOR: This function now fetches all data from the secure backend API
-    // instead of listening directly to the database. This is more secure and scalable.
     console.log("Loading Admin Dashboard for admin user:", user.email);
 
     try {
         const token = await user.getIdToken();
         const headers = { 'Authorization': `Bearer ${token}` };
 
-        // Fetch all necessary data concurrently
-        const [ordersRes, usersRes] = await Promise.all([
+        // Fetch all admin data concurrently from the secure backend
+        const [ordersRes, usersRes, ticketsRes, giveawaysRes] = await Promise.all([
             fetch(`${BACKEND_URL}/api/admin/orders`, { headers }),
-            fetch(`${BACKEND_URL}/api/admin/users`, { headers })
+            fetch(`${BACKEND_URL}/api/admin/users`, { headers }),
+            fetch(`${BACKEND_URL}/api/admin/tickets`, { headers }),
+            fetch(`${BACKEND_URL}/api/admin/giveaways`, { headers })
         ]);
 
-        if (!ordersRes.ok || !usersRes.ok) {
-            throw new Error('Failed to fetch admin data.');
+        if (!ordersRes.ok || !usersRes.ok || !ticketsRes.ok || !giveawaysRes.ok) {
+            let errorMsg = 'Failed to fetch some admin data.';
+            if (!ordersRes.ok) errorMsg += ` (Orders: ${ordersRes.statusText})`;
+            if (!usersRes.ok) errorMsg += ` (Users: ${usersRes.statusText})`;
+            if (!ticketsRes.ok) errorMsg += ` (Tickets: ${ticketsRes.statusText})`;
+            if (!giveawaysRes.ok) errorMsg += ` (Giveaways: ${giveawaysRes.statusText})`;
+            throw new Error(errorMsg);
         }
 
         const allOrders = await ordersRes.json();
         const allUsers = await usersRes.json();
+        const allTickets = await ticketsRes.json();
+        const allGiveaways = await giveawaysRes.json();
 
         window.allAdminOrders = allOrders; // Store for filtering
         window.allAdminUsers = allUsers; // Store for filtering
+        window.allAdminTickets = allTickets;
+        window.allGiveaways = allGiveaways;
 
         // Render the main tables
         renderAdminTable(allOrders);
         renderAdminUsers(allUsers);
-
-        // Initial load for tickets and giveaways
-        loadAdminTickets();
-        if (window.loadAdminGiveaways) window.loadAdminGiveaways();
+        renderAdminTicketsTable(allTickets);
+        renderAdminGiveaways(allGiveaways);
 
     } catch (error) {
         console.error("Admin load error:", error);
         const tbody = document.getElementById('admin-orders-body');
-        if(tbody) tbody.innerHTML = `<tr><td colspan='7' style='text-align:center; padding:20px; color:red'>Error loading data: ${error.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan='7' style='text-align:center; padding:20px; color:red'>Error loading data: ${error.message}</td></tr>`;
     }
 
     // Load current announcement for settings tab
@@ -985,24 +992,6 @@ window.loadAdminDashboard = async function(user) {
         const input = document.getElementById('admin-announcement-input');
         if(input && snap.exists()) input.value = snap.val();
     });
-};
-
-window.renderAdminStats = function(stats) {
-    // REFACTOR: This function now receives stats directly from the backend API.
-    const { totalRevenue, totalProfit, totalOrders, pendingCount } = stats;
-
-    const revEl = document.getElementById('admin-total-revenue');
-    const ordEl = document.getElementById('admin-total-orders');
-    const penEl = document.getElementById('admin-pending-orders');
-    const profitEl = document.getElementById('admin-total-profit');
-
-    if(revEl) revEl.innerText = "₹" + totalRevenue.toLocaleString('en-IN');
-    if(ordEl) ordEl.innerText = totalOrders;
-    if(penEl) penEl.innerText = pendingCount;
-    if (profitEl) {
-        profitEl.innerText = "₹" + totalProfit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        profitEl.style.color = totalProfit >= 0 ? '#00c853' : '#ff4d4f';
-    }
 };
 
 window.resetProfitChange = function() {
@@ -1720,37 +1709,9 @@ window.deleteUserTicket = function(ticketId) {
 
 // --- Admin Side ---
 
-window.loadAdminTickets = function() {
-    if (window.adminTicketsUnsub) window.adminTicketsUnsub();
-
-    window.adminTicketsUnsub = onValue(ref(database, 'tickets'), (snap) => {
-        const tbody = document.getElementById('admin-tickets-body');
-        if(!tbody) return;
-        tbody.innerHTML = '';
-        
-        if(!snap.exists()) {
-            window.allAdminTickets = [];
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px">No tickets found.</td></tr>';
-            return;
-        }
-
-        const tickets = [];
-        snap.forEach(c => {
-            const val = c.val();
-            // Robustness: If ID is missing (from old bad data), use the key
-            if (val && typeof val === 'object') {
-                if (!val.id) val.id = c.key;
-                tickets.push(val);
-            }
-        });
-        tickets.sort((a,b) => (b.timestamp||0) - (a.timestamp||0));
-        window.allAdminTickets = tickets;
-        renderAdminTicketsTable(tickets);
-    });
-};
-
 window.renderAdminTicketsTable = function(tickets) {
     const tbody = document.getElementById('admin-tickets-body');
+    if (!tbody) return;
     tbody.innerHTML = '';
     
     tickets.forEach(t => {
@@ -1875,7 +1836,7 @@ window.setupAdminRealtimeListeners = async function() {
             const stats = await res.json();
             
             // Update dashboard stat cards
-            renderAdminStats(stats);
+            window.renderAdminStats(stats);
 
             // Update notification badges
             updateAdminBadges('tickets', stats.openTicketsCount);
@@ -1902,6 +1863,24 @@ window.setupAdminRealtimeListeners = async function() {
     fetchAdminStats();
     window.adminStatsInterval = setInterval(fetchAdminStats, 30000); // 30 seconds
 };
+
+window.renderAdminStats = function(stats) {
+    const { totalRevenue, totalProfit, totalOrders, pendingCount } = stats;
+
+    const revEl = document.getElementById('admin-total-revenue');
+    const ordEl = document.getElementById('admin-total-orders');
+    const penEl = document.getElementById('admin-pending-orders');
+    const profitEl = document.getElementById('admin-total-profit');
+
+    if(revEl) revEl.innerText = "₹" + totalRevenue.toLocaleString('en-IN');
+    if(ordEl) ordEl.innerText = totalOrders;
+    if(penEl) penEl.innerText = pendingCount;
+    if (profitEl) {
+        profitEl.innerText = "₹" + totalProfit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        profitEl.style.color = totalProfit >= 0 ? '#00c853' : '#ff4d4f';
+    }
+};
+
 window.updateAdminBadges = function(type, count) {
     const sidebarBadge = document.getElementById('admin-sidebar-badge');
     const tabBadge = document.getElementById(`admin-${type}-badge`);
