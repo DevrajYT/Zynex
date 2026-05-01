@@ -2088,12 +2088,22 @@ window.saveGiveaway = function() {
         update(ref(database, `giveaways/${id}`), data).then(() => {
             showAlert("Giveaway updated.");
             closePopup('.create-giveaway-popup');
+            // Update local data and re-render
+            const index = window.allGiveaways.findIndex(g => g.id === id);
+            if (index !== -1) {
+                window.allGiveaways[index] = { ...window.allGiveaways[index], ...data };
+                window.renderAdminGiveaways(window.allGiveaways);
+            }
         });
     } else {
         data.timestamp = Date.now();
-        push(ref(database, 'giveaways'), data).then(() => {
+        push(ref(database, 'giveaways'), data).then((newRef) => {
             showAlert("Giveaway created.");
             closePopup('.create-giveaway-popup');
+            // Add to local data and re-render
+            const newGiveaway = { ...data, id: newRef.key, entriesCount: 0 };
+            window.allGiveaways.unshift(newGiveaway);
+            window.renderAdminGiveaways(window.allGiveaways);
         });
     }
 };
@@ -2104,6 +2114,9 @@ window.deleteGiveaway = function(id) {
         remove(ref(database, `giveaway_entries/${id}`));
         closePopup('.manage-giveaway-popup');
         showAlert("Giveaway deleted.");
+        // Remove from local data and re-render
+        window.allGiveaways = window.allGiveaways.filter(g => g.id !== id);
+        window.renderAdminGiveaways(window.allGiveaways);
     });
 };
 
@@ -2124,6 +2137,7 @@ window.openManageGiveaway = function(id) {
             countEl.innerText = '0';
             window.currentGiveawayEntries = [];
             tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">No entries</td></tr>';
+            renderWinnerTab(g); // Still render winner tab even with no entries
             return;
         }
         
@@ -2186,7 +2200,7 @@ window.renderWinnerTab = function(g) {
     }
     
     if(g.declined_winners && Object.keys(g.declined_winners).length > 0) {
-        html += `<h4 style="margin-top:20px; margin-bottom:10px;">Reroll History</h4><ul style="font-size:0.85rem; color:#666; padding-left:20px;">`;
+        html += `<h4 style="margin-top:20px; margin-bottom:10px;">Reroll History</h4><ul style="font-size:0.85rem; color:#666; padding-left:20px; list-style:disc;">`;
         Object.values(g.declined_winners).forEach(dw => {
             html += `<li style="margin-bottom:5px;"><strong>@${sanitize(dw.igHandle)}</strong> - ${sanitize(dw.reason || 'Simple Reroll')} <br><small>${new Date(dw.timestamp).toLocaleDateString()}</small></li>`;
         });
