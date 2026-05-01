@@ -976,10 +976,10 @@ window.loadAdminDashboard = async function(user) {
         window.allGiveaways = allGiveaways;
 
         // Render the main tables
-        renderAdminTable(allOrders);
-        renderAdminUsers(allUsers);
-        renderAdminTicketsTable(allTickets);
-        renderAdminGiveaways(allGiveaways);
+        window.renderAdminTable(allOrders);
+        window.renderAdminUsers(allUsers);
+        window.renderAdminTicketsTable(allTickets);
+        window.renderAdminGiveaways(allGiveaways);
 
     } catch (error) {
         console.error("Admin load error:", error);
