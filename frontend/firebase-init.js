@@ -1792,8 +1792,8 @@ window.toggleTicketStatus = function() {
     const newStatus = t.status === 'open' ? 'closed' : 'open';
     
     update(ref(database, `tickets/${currentAdminTicketId}`), { status: newStatus }).then(() => {
-        t.status = newStatus;
-        loadAdminTickets(); // Refresh table
+         t.status = newStatus; // Update local data
+        window.renderAdminTicketsTable(window.allAdminTickets); // Refresh table from local data
         showAlert(`Ticket ${newStatus}.`, "Success");
     });
 };
@@ -1960,77 +1960,74 @@ window.setupUserNotifications = function(user) {
 
 // ================= GIVEAWAY SYSTEM =================
 // --- ADMIN SIDE ---
-window.loadAdminGiveaways = function() {
-    if(window.adminGiveawaysUnsub) window.adminGiveawaysUnsub();
+window.renderAdminGiveaways = function(giveaways) {
+    const listContainer = document.getElementById('admin-giveaways-list');
+    if (!listContainer) return;
 
-    window.adminGiveawaysUnsub = onValue(ref(database, 'giveaways'), (snap) => {
-        const listContainer = document.getElementById('admin-giveaways-list');
-        if(!listContainer) return;
-        
-        listContainer.innerHTML = '';
-        if(!snap.exists()) {
-            listContainer.innerHTML = '<p style="grid-column:1/-1; color:#999; text-align:center;">No giveaways created yet.</p>';
-            window.allGiveaways = [];
-            return;
-        }
+    listContainer.innerHTML = '';
+    if (!giveaways || giveaways.length === 0) {
+        listContainer.innerHTML = '<p style="grid-column:1/-1; color:#999; text-align:center;">No giveaways created yet.</p>';
+        return;
+    }
 
-        const giveaways = [];
-        snap.forEach(c => { giveaways.push({id: c.key, ...c.val()}); });
-        giveaways.sort((a,b) => (b.timestamp||0) - (a.timestamp||0));
-        window.allGiveaways = giveaways;
+    let html = '';
+    giveaways.forEach(g => {
+        const statusColor = g.isActive ? '#00c853' : '#999';
+        const statusText = g.isActive ? 'Active' : 'Ended';
+        const entriesCount = g.entriesCount || 0;
+        const imgBg = g.imageUrl ? `background-image: url('${sanitize(g.imageUrl)}');` : `background: linear-gradient(135deg, #5c6cff, #8c52ff);`;
 
-        // Fetch entries count for all to display on cards
-        get(ref(database, 'giveaway_entries')).then(entriesSnap => {
-            const allEntries = entriesSnap.exists() ? entriesSnap.val() : {};
-            let html = '';
-
-            giveaways.forEach(g => {
-                const statusColor = g.isActive ? '#00c853' : '#999';
-                const statusText = g.isActive ? 'Active' : 'Ended';
-                const entriesCount = allEntries[g.id] ? Object.keys(allEntries[g.id]).length : 0;
-                const imgBg = g.imageUrl ? `background-image: url('${sanitize(g.imageUrl)}');` : `background: linear-gradient(135deg, #5c6cff, #8c52ff);`;
-                
-                html += `
-                    <div class="admin-ga-card">
-                        <div class="admin-ga-thumb" style="${imgBg}">
-                            <div style="position:absolute; top:10px; right:10px; display:flex; align-items:center; gap:5px; font-size:0.75rem; color:#fff; font-weight:600; background:rgba(0,0,0,0.6); padding:4px 10px; border-radius:12px;">
-                                <div style="width:8px; height:8px; border-radius:50%; background:${statusColor};"></div> ${statusText}
-                            </div>
-                        </div>
-                        <div class="admin-ga-content">
-                            <h4 style="margin-bottom:5px; font-size:1.1rem;">${sanitize(g.title)}</h4>
-                            <p style="color:#666; font-size:0.9rem; margin-bottom:5px;">Prize: <strong>${sanitize(g.prize)}</strong></p>
-                            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                                <span style="color:#888; font-size:0.85rem;">Ends: ${g.endDate ? new Date(g.endDate).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'No limit'}</span>
-                                <span style="color:#5c6cff; font-size:0.85rem; font-weight:600;">${entriesCount} Entries</span>
-                            </div>
-                            <div style="font-size:0.8rem; color:#888;">Winners Configured: <strong>${g.winnersCount || 1}</strong></div>
-                            <div class="admin-ga-actions">
-                                <button class="btn-outline" onclick="openManageGiveaway('${g.id}')">Manage</button>
-                                <button class="btn-outline" style="flex:0 0 40px" onclick="toggleGiveawayActive('${g.id}', ${g.isActive})" title="${g.isActive ? 'Pause' : 'Activate'}"><ion-icon name="${g.isActive ? 'pause' : 'play'}"></ion-icon></button>
-                                <button class="btn-outline" style="flex:0 0 40px" onclick="duplicateGiveaway('${g.id}')" title="Duplicate"><ion-icon name="copy"></ion-icon></button>
-                            </div>
-                        </div>
+        html += `
+            <div class="admin-ga-card">
+                <div class="admin-ga-thumb" style="${imgBg}">
+                    <div style="position:absolute; top:10px; right:10px; display:flex; align-items:center; gap:5px; font-size:0.75rem; color:#fff; font-weight:600; background:rgba(0,0,0,0.6); padding:4px 10px; border-radius:12px;">
+                        <div style="width:8px; height:8px; border-radius:50%; background:${statusColor};"></div> ${statusText}
                     </div>
-                `;
-            });
-            listContainer.innerHTML = html;
-        });
+                </div>
+                <div class="admin-ga-content">
+                    <h4 style="margin-bottom:5px; font-size:1.1rem;">${sanitize(g.title)}</h4>
+                    <p style="color:#666; font-size:0.9rem; margin-bottom:5px;">Prize: <strong>${sanitize(g.prize)}</strong></p>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <span style="color:#888; font-size:0.85rem;">Ends: ${g.endDate ? new Date(g.endDate).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'No limit'}</span>
+                        <span style="color:#5c6cff; font-size:0.85rem; font-weight:600;">${entriesCount} Entries</span>
+                    </div>
+                    <div style="font-size:0.8rem; color:#888;">Winners Configured: <strong>${g.winnersCount || 1}</strong></div>
+                    <div class="admin-ga-actions">
+                        <button class="btn-outline" onclick="openManageGiveaway('${g.id}')">Manage</button>
+                        <button class="btn-outline" style="flex:0 0 40px" onclick="toggleGiveawayActive('${g.id}', ${g.isActive})" title="${g.isActive ? 'Pause' : 'Activate'}"><ion-icon name="${g.isActive ? 'pause' : 'play'}"></ion-icon></button>
+                        <button class="btn-outline" style="flex:0 0 40px" onclick="duplicateGiveaway('${g.id}')" title="Duplicate"><ion-icon name="copy"></ion-icon></button>
+                    </div>
+                </div>
+            </div>
+        `;
     });
+    listContainer.innerHTML = html;
 };
 
 window.toggleGiveawayActive = function(id, currentState) {
-    update(ref(database, `giveaways/${id}`), { isActive: !currentState })
-        .then(() => showAlert(`Giveaway successfully ${!currentState ? 'activated' : 'paused'}.`, "Success"));
+    update(ref(database, `giveaways/${id}`), { isActive: !currentState }).then(() => {
+        showAlert(`Giveaway successfully ${!currentState ? 'activated' : 'paused'}.`, "Success");
+        // Refresh UI without full reload
+        const giveaway = window.allGiveaways.find(g => g.id === id);
+        if (giveaway) giveaway.isActive = !currentState;
+        window.renderAdminGiveaways(window.allGiveaways);
+    });
 };
 
 window.duplicateGiveaway = function(id) {
     const g = window.allGiveaways.find(x => x.id === id);
     if(!g) return;
     showConfirm(`Are you sure you want to duplicate "${g.title}"?`, () => {
-        const copy = { ...g, title: g.title + " (Copy)", isActive: false, winner: null, declined_winners: null, timestamp: Date.now() };
+        const copy = { ...g, title: g.title + " (Copy)", isActive: false, winners: null, winner: null, declined_winners: null, timestamp: Date.now() };
         delete copy.id;
-        push(ref(database, 'giveaways'), copy).then(() => showAlert("Giveaway duplicated successfully.", "Success"));
+        delete copy.entriesCount; // This is calculated by the backend
+        push(ref(database, 'giveaways'), copy).then((newRef) => {
+            showAlert("Giveaway duplicated successfully.");
+            // Add to local data and re-render
+            const newGiveaway = { ...copy, id: newRef.key, entriesCount: 0 };
+            window.allGiveaways.unshift(newGiveaway);
+            window.renderAdminGiveaways(window.allGiveaways);
+        });
     });
 };
 
